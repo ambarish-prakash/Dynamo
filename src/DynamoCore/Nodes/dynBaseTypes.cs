@@ -1681,7 +1681,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("value", Value.ToString());
+                helper.SetAttribute("value", Value);
             }
         }
 
@@ -1692,7 +1692,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Value = DeserializeValue(helper.ReadString("value"));
+                Value = helper.ReadString("value");
             }
         }
 
@@ -3255,7 +3255,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("value", Value.ToString(CultureInfo.InvariantCulture));
+                helper.SetAttribute("doubleValue", Value);
             }
         }
 
@@ -3265,7 +3265,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Value = DeserializeValue(helper.ReadString("value"));
+                Value = helper.ReadDouble("doubleValue");
             }
         }
 
@@ -3297,7 +3297,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("value", Value.ToString());
+                helper.SetAttribute("boolValue", Value);
             }
         }
 
@@ -3307,7 +3307,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Value = DeserializeValue(helper.ReadString("value"));
+                Value = helper.ReadBoolean("boolValue");
             }
         }
 
@@ -3339,7 +3339,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("value", Value.ToString(CultureInfo.InvariantCulture));
+                helper.SetAttribute("stringValue", Value);
             }
         }
 
@@ -3349,7 +3349,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Value = DeserializeValue(helper.ReadString("value"));
+                Value = helper.ReadString("stringValue");
             }
         }
 
@@ -4048,7 +4048,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Min = helper.ReadDouble("min"); Min = helper.ReadDouble("min");
+                Min = helper.ReadDouble("min"); 
                 Max = helper.ReadDouble("max");
             }
         }
@@ -4212,7 +4212,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("value", Value.ToString());
+                helper.SetAttribute("value", Value);
             }
         }
 
@@ -4222,7 +4222,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                Value = DeserializeValue(helper.ReadString("value"));
+                Value = helper.ReadString("value");
             }
         }
 
@@ -4590,7 +4590,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                helper.SetAttribute("index", SelectedIndex);
+                helper.SetAttribute("dropDownBaseIndex", SelectedIndex);
             }
         }
 
@@ -4600,7 +4600,7 @@ namespace Dynamo.Nodes
             if (context == SaveContext.Undo)
             {
                 XmlElementHelper helper = new XmlElementHelper(element);
-                SelectedIndex = helper.ReadInteger("index");
+                SelectedIndex = helper.ReadInteger("dropDownBaseIndex");
             }
         }
 
