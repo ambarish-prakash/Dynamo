@@ -36,6 +36,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="GraphToDSCompiler, Version=0.1.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\extern\DesignScript\GraphToDSCompiler.dll</HintPath>
+    </Reference>
     <Reference Include="Greg, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\extern\greg\Greg.dll</HintPath>
@@ -55,6 +59,18 @@
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="ProtoAssociative, Version=0.1.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\extern\DesignScript\ProtoAssociative.dll</HintPath>
+    </Reference>
+    <Reference Include="ProtoCore, Version=0.1.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\extern\DesignScript\ProtoCore.dll</HintPath>
+    </Reference>
+    <Reference Include="ProtoImperative, Version=0.1.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\extern\DesignScript\ProtoImperative.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Web" />
@@ -63,6 +79,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CodeNodeTests.cs" />
     <Compile Include="PrintValueTests.cs" />
     <Compile Include="CoreTests.cs" />
     <Compile Include="CoreDynTests.cs" />
