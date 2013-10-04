@@ -11,8 +11,125 @@ namespace Dynamo.Nodes
     [NodeName("Code Block")]
     [NodeCategory(BuiltinNodeCategories.CORE_LISTS)]
     [NodeDescription("Allows for code to be wriiten")] //<--Change the descp :|
-    public class DynamoCodeBlockNode : NodeModel
+    public partial class DynamoCodeBlockNode : NodeModel
     {
+        private string code;
+        private List<Statement> codeStatements;
+        private List<Variable> referencedVariables;
+
+        #region Properties
+        public string Code
+        {
+            get
+            {
+                return code;
+            }
+
+            set
+            {
+                if (code == null || !code.Equals(value))
+                {
+                    code = value;
+                    if (value != null)
+                    {
+                        DisableReporting();
+                        ProcessCode();
+                        RaisePropertyChanged("Code");
+                        RequiresRecalc = true;
+                        EnableReporting();
+                        if (WorkSpace != null)
+                            WorkSpace.Modified();
+                    }
+                }
+            }
+        }
+
+        public DynamoCodeBlockNode()
+        {
+            codeStatements = new List<Statement>();
+            referencedVariables = new List<Variable>();
+        }
+        #endregion
+
+        #region Private Methods
+        private void ProcessCode()
+        {
+            //New code : Revamp everything
+            codeStatements.Clear(); 
+            referencedVariables.Clear();
+
+            if (Code == null || Code.Equals("")) //If its null then remove all the ports
+            {
+                SetPorts();
+                return;
+            }
+
+            //Parse the text and assign each AST node to a statement instance
+            Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
+            unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
+            List<ProtoCore.AST.Node> resultNode;
+            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(Code, unboundIdentifiers, out resultNode))
+                throw new Exception();
+            //int statementNumber = 1;
+            foreach (Node node in resultNode)
+            {
+                Statement tempStatement;
+                //if (node is BinaryExpressionNode)
+                //{
+                //    tempStatement = Statement.CreateInstance(node, unboundIdentifiers[statementNumber]);
+                //    statementNumber++;
+                //}
+                //else
+                {
+                    tempStatement = Statement.CreateInstance(node);
+                }
+                codeStatements.Add(tempStatement);
+            }
+
+            foreach (var entry in unboundIdentifiers)
+            {
+                foreach (GraphToDSCompiler.VariableLine varLine in entry.Value)
+                {
+                    referencedVariables.Add(new Variable(varLine));
+                }
+            }
+
+            SetPorts(); //Set the input and output ports based on the 
+        }
+
+        private void SetPorts()
+        {
+            InPortData.Clear();
+            OutPortData.Clear();
+            if (codeStatements.Count == 0 || codeStatements == null)
+            {
+                return;
+            }
+
+            SetInputPorts();
+            SetOutputPorts();
+
+            RegisterAllPorts();
+        }
+
+        private void SetOutputPorts()
+        {
+            foreach (Statement s in codeStatements)
+            {
+                if (s.AssignedVariable != null)
+                    OutPortData.Add(new PortData(s.AssignedVariable.Name, "Output", typeof(object)));
+            }
+        }
+
+        private void SetInputPorts()
+        {
+            foreach(var refVariable in referencedVariables)
+            {
+                InPortData.Add(new PortData(refVariable.Name, "Input", typeof(object)));
+            }
+        }
+        #endregion
+
 
     }
 
@@ -42,6 +159,14 @@ namespace Dynamo.Nodes
                 throw new ArgumentNullException();
 
             return new Statement(astNode);
+        }
+
+        public static Statement CreateInstance(Node astNode, List<GraphToDSCompiler.VariableLine> varLine)
+        {
+            if (astNode == null)
+                throw new ArgumentNullException();
+
+            return new Statement(astNode,varLine);
         }
 
         //NOT TESTED WITH THIS COMMIT --- WILL BE CHNAGED TO USE EXISTING APIs
@@ -107,15 +232,15 @@ namespace Dynamo.Nodes
                         throw new ArgumentException();
                     }
 
-                    if (binExprNode.RightNode == null)
-                    {
-                        throw new ArgumentNullException();
-                    }
-                    else
-                    {
-                        CurrentType = StatementType.Expression;
-                        ReferencedVariables = GetReferencedVariables(binExprNode.RightNode);
-                    }
+                    //if (binExprNode.RightNode == null)
+                    //{
+                    //    throw new ArgumentNullException();
+                    //}
+                    //else
+                    //{
+                    //    CurrentType = StatementType.Expression;
+                    //    ReferencedVariables = GetReferencedVariables(binExprNode.RightNode);
+                    //}
 
                 }
             }
@@ -138,6 +263,67 @@ namespace Dynamo.Nodes
                 }
             }
         }
+
+        private Statement(Node astNode, List<GraphToDSCompiler.VariableLine> refVarList)
+        {
+            ReferencedVariables.Clear();
+            Variable tempVar;
+            foreach (var varLine in refVarList)
+            {
+                tempVar = new Variable(varLine);
+                ReferencedVariables.Add(tempVar);
+            }
+
+            StartLine = astNode.line;
+            EndLine = astNode.endLine;
+
+            if (astNode is ProtoCore.AST.AssociativeAST.BinaryExpressionNode)
+            {
+                BinaryExpressionNode binExprNode = astNode as BinaryExpressionNode;
+                if (binExprNode.Optr == ProtoCore.DSASM.Operator.assign)
+                {
+                    if (binExprNode.LeftNode != null && binExprNode.LeftNode is IdentifierNode)
+                    {
+                        if (!binExprNode.LeftNode.Name.Equals("return"))
+                            AssignedVariable = new Variable(binExprNode.LeftNode as IdentifierNode);
+                    }
+                    else
+                    {
+                        throw new ArgumentException();
+                    }
+
+                    //if (binExprNode.RightNode == null)
+                    //{
+                    //    throw new ArgumentNullException();
+                    //}
+                    //else
+                    //{
+                    //    CurrentType = StatementType.Expression;
+                    //    ReferencedVariables = GetReferencedVariables(binExprNode.RightNode);
+                    //}
+
+                }
+            }
+            else if (astNode is IdentifierNode)
+            {
+                CurrentType = StatementType.AssignmentVar;
+            }
+            else if (astNode is ExprListNode)
+            {
+                CurrentType = StatementType.Collection;
+            }
+            else if (astNode is FunctionDefinitionNode)
+            {
+                FunctionDefinitionNode funcNode = astNode as FunctionDefinitionNode;
+                CodeBlockNode funcBody = funcNode.FunctionBody;
+                foreach (Node node in funcBody.Body)
+                {
+                    Statement tempStatement = new Statement(node);
+                    SubStatements.Add(tempStatement);
+                }
+            }
+
+        }
         #endregion
     }
 
@@ -156,6 +342,14 @@ namespace Dynamo.Nodes
             Row = identNode.line;
             StartColumn = identNode.col;
             EndColumn = identNode.endCol;
+        }
+
+        public Variable(GraphToDSCompiler.VariableLine varLine)
+        {
+            Name = varLine.variable;
+            Row = varLine.line;
+            StartColumn = varLine.column;
+            EndColumn = StartColumn + Name.Length;
         }
     }
 }

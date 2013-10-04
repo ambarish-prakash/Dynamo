@@ -17,7 +17,7 @@ namespace Dynamo.Tests
         [Test]
         public void TestVariableClass()
         {
-            string code = @"def foo(){return=10;}";
+            string code = "a;";
             CodeBlockNode commentNode;
             ProtoCore.AST.Node resultNode;
             resultNode = GraphToDSCompiler.GraphUtilities.Parse(code, out commentNode);
