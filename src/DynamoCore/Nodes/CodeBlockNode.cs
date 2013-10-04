@@ -82,7 +82,7 @@ namespace Dynamo.Nodes
                 //}
                 //else
                 {
-                    tempStatement = Statement.CreateInstance(node);
+                    tempStatement = Statement.CreateInstance(node, this.GUID);
                 }
                 codeStatements.Add(tempStatement);
             }
@@ -157,12 +157,12 @@ namespace Dynamo.Nodes
         private List<Statement> subStatements = new List<Statement>();
 
         #region Public Methods
-        public static Statement CreateInstance(Node astNode)
+        public static Statement CreateInstance(Node astNode, Guid nodeGuid)
         {
             if (astNode == null)
                 throw new ArgumentNullException();
 
-            return new Statement(astNode);
+            return new Statement(astNode,nodeGuid);
         }
 
 #if false
@@ -216,7 +216,7 @@ namespace Dynamo.Nodes
         #endregion
 
         #region Private Methods
-        private Statement(Node astNode)
+        private Statement(Node astNode, Guid nodeGuid)
         {
             StartLine = astNode.line;
             EndLine = astNode.endLine;
@@ -224,11 +224,24 @@ namespace Dynamo.Nodes
             if (astNode is BinaryExpressionNode)
             {
                 BinaryExpressionNode binExprNode = astNode as BinaryExpressionNode;
+                if (binExprNode.Optr != ProtoCore.DSASM.Operator.assign)
+                    throw new ArgumentException("Binary Expr Node is not an assignment!");
+                if (!(binExprNode.LeftNode is IdentifierNode))
+                    throw new ArgumentException("LHS invalid");
+
+                IdentifierNode assignedVar = binExprNode.LeftNode as IdentifierNode;
+                if (assignedVar.Name.Equals("temp" + nodeGuid.ToString()))
+                    AssignedVariable = new Variable(assignedVar);
+                else
+                    AssignedVariable = null;
+
             }
-            else if (astNode is IdentifierNode)
+            else if (astNode is FunctionDefinitionNode)
             {
 
             }
+            else
+                throw new ArgumentException("Must be func def or assignment");
         }
 #if false
         private Statement(Node astNode, List<GraphToDSCompiler.VariableLine> refVarList)
