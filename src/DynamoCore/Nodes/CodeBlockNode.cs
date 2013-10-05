@@ -13,9 +13,9 @@ namespace Dynamo.Nodes
     [NodeDescription("Allows for code to be wriiten")] //<--Change the descp :|
     public partial class DynamoCodeBlockNode : NodeModel
     {
-        private string code;
-        private List<Statement> codeStatements;
-        private List<Variable> referencedVariables;
+        private string code = "Your Code Goes Here";
+        private List<Statement> codeStatements = new List<Statement>();
+
 
         #region Properties
         public string Code
@@ -43,12 +43,6 @@ namespace Dynamo.Nodes
                 }
             }
         }
-
-        public DynamoCodeBlockNode()
-        {
-            codeStatements = new List<Statement>();
-            referencedVariables = new List<Variable>();
-        }
         #endregion
 
         #region Private Methods
@@ -56,9 +50,8 @@ namespace Dynamo.Nodes
         {
             //New code : Revamp everything
             codeStatements.Clear(); 
-            referencedVariables.Clear();
 
-            if (Code == null || Code.Equals("")) //If its null then remove all the ports
+            if (Code.Equals("")) //If its null then remove all the ports
             {
                 SetPorts();
                 return;
@@ -67,31 +60,28 @@ namespace Dynamo.Nodes
             //Parse the text and assign each AST node to a statement instance
             Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
             unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
-            List<ProtoCore.AST.Node> resultNode;
-            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(Code, unboundIdentifiers, out resultNode))
-                throw new Exception();
-            //int statementNumber = 1;
+            List<ProtoCore.AST.Node> resultNode = new List<Node>();
+            List<string> compiledCode;
+            GraphToDSCompiler.GraphUtilities.CompileExpression(Code, out compiledCode);
+            for(int i=0;i<compiledCode.Count;i++)
+            {
+                string singleExpression = compiledCode[i];
+                singleExpression = singleExpression.Replace("%t", "temp" + this.GUID.ToString());
+                singleExpression = singleExpression.Replace("\r", "");
+                singleExpression = singleExpression.Replace("\n", "");
+                List<ProtoCore.AST.Node> singleNode;
+                if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(singleExpression, unboundIdentifiers, out singleNode))
+                    throw new Exception();
+                resultNode.Add(singleNode[0]);
+            }
+
             foreach (Node node in resultNode)
             {
                 Statement tempStatement;
-                //if (node is BinaryExpressionNode)
-                //{
-                //    tempStatement = Statement.CreateInstance(node, unboundIdentifiers[statementNumber]);
-                //    statementNumber++;
-                //}
-                //else
                 {
-                    tempStatement = Statement.CreateInstance(node);
+                    tempStatement = Statement.CreateInstance(node, this.GUID);
                 }
                 codeStatements.Add(tempStatement);
-            }
-
-            foreach (var entry in unboundIdentifiers)
-            {
-                foreach (GraphToDSCompiler.VariableLine varLine in entry.Value)
-                {
-                    referencedVariables.Add(new Variable(varLine));
-                }
             }
 
             SetPorts(); //Set the input and output ports based on the 
@@ -123,20 +113,27 @@ namespace Dynamo.Nodes
 
         private void SetInputPorts()
         {
-            foreach(var refVariable in referencedVariables)
+            List<string> uniqueInputs = new List<string>();
+            foreach (var singleStatement in codeStatements)
             {
-                InPortData.Add(new PortData(refVariable.Name, "Input", typeof(object)));
+                List<string> inputNames = singleStatement.GetReferencedVariableNames();
+                foreach (string name in inputNames)
+                {
+                    if (!uniqueInputs.Contains(name))
+                        uniqueInputs.Add(name);
+                }
             }
+            foreach(string name in uniqueInputs)
+                InPortData.Add(new PortData(name, "Output", typeof(object)));
         }
         #endregion
 
-
     }
-
 
     //NOT TESTED
     public class Statement
     {
+        #region Enums
         public enum State 
         { 
             Normal, 
@@ -151,50 +148,55 @@ namespace Dynamo.Nodes
             AssignmentVar, 
             FuncDeclaration 
         }
+        #endregion
+
+        private List<Variable> referencedVariables = new List<Variable>();
+        private List<Statement> subStatements = new List<Statement>();
 
         #region Public Methods
-        public static Statement CreateInstance(Node astNode)
+        public static Statement CreateInstance(Node astNode, Guid nodeGuid)
         {
             if (astNode == null)
                 throw new ArgumentNullException();
 
-            return new Statement(astNode);
+            return new Statement(astNode,nodeGuid);
         }
 
-        public static Statement CreateInstance(Node astNode, List<GraphToDSCompiler.VariableLine> varLine)
-        {
-            if (astNode == null)
-                throw new ArgumentNullException();
-
-            return new Statement(astNode,varLine);
-        }
-
-        //NOT TESTED WITH THIS COMMIT --- WILL BE CHNAGED TO USE EXISTING APIs
-        public static List<Variable> GetReferencedVariables(Node astNode)
+        //As of now only works with functionalcall nodes
+        //NOT TESTED WITH THIS COMMIT
+        public static void GetReferencedVariables(Node astNode , List<Variable> refVariableList)
         {
             //DFS Search to find all identifier nodes
             if (astNode == null)
-                return new List<Variable>();
-            List<Variable> resultList = new List<Variable>();
-            if (astNode is BinaryExpressionNode) // As of now only implemented for BEN, Will now look into other APIs and change it to universal
+                return ;
+            if (astNode is FunctionCallNode) 
             {
-                List<Variable> resultLeft;
-                resultLeft = GetReferencedVariables((astNode as BinaryExpressionNode).LeftNode);
-                resultList = GetReferencedVariables((astNode as BinaryExpressionNode).RightNode);
-                foreach (Variable var in resultLeft)
+                FunctionCallNode currentNode = astNode as FunctionCallNode;
+                foreach (var node in currentNode.FormalArguments)
                 {
-                    if (resultList.Where(x => x.Name.Equals(var.Name)).Count() == 0)
-                    {
-                        resultList.Add(var);
-                    }
+                    GetReferencedVariables(node, refVariableList);
                 }
+                
             }
-            if (astNode is IdentifierNode)
+            else if (astNode is IdentifierNode)
             {
                 Variable resultVariable = new Variable(astNode as IdentifierNode);
-                resultList.Add(resultVariable);
+                refVariableList.Add(new Variable(astNode as IdentifierNode));
             }
-            return resultList;
+            else
+            {
+                //Its could be something like a literal
+                //Or node not completely implemented YET
+                return;
+            }
+        }
+
+        public List<string> GetReferencedVariableNames()
+        {
+            List<string> names = new List<string>();
+            foreach (Variable refVar in referencedVariables)
+                names.Add(refVar.Name);
+            return names;
         }
         #endregion
 
@@ -203,126 +205,48 @@ namespace Dynamo.Nodes
         public int EndLine { get; private set; }
         
         public Variable AssignedVariable { get; private set; }
-        public List<Variable> ReferencedVariables { get; private set; }
         
         public State CurrentState { get; private set; }
         public StatementType CurrentType { get; private set; }
         
-        public List<Statement> SubStatements { get; private set; }
         #endregion
 
         #region Private Methods
-        private Statement(Node astNode)
+        //TODO : NOT YET SET STATEMENT TYPE. DO THAT....
+        private Statement(Node astNode, Guid nodeGuid)
         {
             StartLine = astNode.line;
             EndLine = astNode.endLine;
 
-            if (astNode is ProtoCore.AST.AssociativeAST.BinaryExpressionNode)
+            if (astNode is BinaryExpressionNode)
             {
                 BinaryExpressionNode binExprNode = astNode as BinaryExpressionNode;
-                if (binExprNode.Optr == ProtoCore.DSASM.Operator.assign)
+                if (binExprNode.Optr != ProtoCore.DSASM.Operator.assign)
+                    throw new ArgumentException("Binary Expr Node is not an assignment!");
+                if (!(binExprNode.LeftNode is IdentifierNode))
+                    throw new ArgumentException("LHS invalid");
+
+                IdentifierNode assignedVar = binExprNode.LeftNode as IdentifierNode;
+                if (assignedVar.Name.Equals("temp" + nodeGuid.ToString()))
                 {
-                    if (binExprNode.LeftNode != null && binExprNode.LeftNode is IdentifierNode)
-                    {
-                        if (!binExprNode.LeftNode.Name.Equals("return"))
-                            AssignedVariable = new Variable(binExprNode.LeftNode as IdentifierNode);
-                    }
-                    else
-                    {
-                        throw new ArgumentException();
-                    }
-
-                    //if (binExprNode.RightNode == null)
-                    //{
-                    //    throw new ArgumentNullException();
-                    //}
-                    //else
-                    //{
-                    //    CurrentType = StatementType.Expression;
-                    //    ReferencedVariables = GetReferencedVariables(binExprNode.RightNode);
-                    //}
-
+                    AssignedVariable = null;
+                    //CurrentType = GetStatementType(binExprNode.RightNode); <-Implement this
                 }
-            }
-            else if (astNode is IdentifierNode)
-            {
-                CurrentType = StatementType.AssignmentVar;
-            }
-            else if (astNode is ExprListNode)
-            {
-                CurrentType = StatementType.Collection;
+                else
+                {
+                    AssignedVariable = new Variable(assignedVar);
+                }
+
+                List<Variable> refVariableList = new List<Variable>();
+                GetReferencedVariables(binExprNode.RightNode, refVariableList);
+                referencedVariables = refVariableList;
             }
             else if (astNode is FunctionDefinitionNode)
             {
-                FunctionDefinitionNode funcNode = astNode as FunctionDefinitionNode;
-                CodeBlockNode funcBody = funcNode.FunctionBody;
-                foreach (Node node in funcBody.Body)
-                {
-                    Statement tempStatement = new Statement(node);
-                    SubStatements.Add(tempStatement);
-                }
-            }
-        }
 
-        private Statement(Node astNode, List<GraphToDSCompiler.VariableLine> refVarList)
-        {
-            ReferencedVariables.Clear();
-            Variable tempVar;
-            foreach (var varLine in refVarList)
-            {
-                tempVar = new Variable(varLine);
-                ReferencedVariables.Add(tempVar);
             }
-
-            StartLine = astNode.line;
-            EndLine = astNode.endLine;
-
-            if (astNode is ProtoCore.AST.AssociativeAST.BinaryExpressionNode)
-            {
-                BinaryExpressionNode binExprNode = astNode as BinaryExpressionNode;
-                if (binExprNode.Optr == ProtoCore.DSASM.Operator.assign)
-                {
-                    if (binExprNode.LeftNode != null && binExprNode.LeftNode is IdentifierNode)
-                    {
-                        if (!binExprNode.LeftNode.Name.Equals("return"))
-                            AssignedVariable = new Variable(binExprNode.LeftNode as IdentifierNode);
-                    }
-                    else
-                    {
-                        throw new ArgumentException();
-                    }
-
-                    //if (binExprNode.RightNode == null)
-                    //{
-                    //    throw new ArgumentNullException();
-                    //}
-                    //else
-                    //{
-                    //    CurrentType = StatementType.Expression;
-                    //    ReferencedVariables = GetReferencedVariables(binExprNode.RightNode);
-                    //}
-
-                }
-            }
-            else if (astNode is IdentifierNode)
-            {
-                CurrentType = StatementType.AssignmentVar;
-            }
-            else if (astNode is ExprListNode)
-            {
-                CurrentType = StatementType.Collection;
-            }
-            else if (astNode is FunctionDefinitionNode)
-            {
-                FunctionDefinitionNode funcNode = astNode as FunctionDefinitionNode;
-                CodeBlockNode funcBody = funcNode.FunctionBody;
-                foreach (Node node in funcBody.Body)
-                {
-                    Statement tempStatement = new Statement(node);
-                    SubStatements.Add(tempStatement);
-                }
-            }
-
+            else
+                throw new ArgumentException("Must be func def or assignment");
         }
         #endregion
     }
@@ -334,6 +258,7 @@ namespace Dynamo.Nodes
         public int EndColumn { get; private set; }
         public string Name { get; private set; }
 
+        #region Public Methods
         public Variable(IdentifierNode identNode)
         {
             if (identNode == null)
@@ -351,5 +276,6 @@ namespace Dynamo.Nodes
             StartColumn = varLine.column;
             EndColumn = StartColumn + Name.Length;
         }
+        #endregion
     }
 }

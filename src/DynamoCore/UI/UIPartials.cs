@@ -641,6 +641,8 @@ namespace Dynamo.Nodes
                 Source = this,
                 UpdateSourceTrigger = UpdateSourceTrigger.Explicit
             });
+
+            tb.Focus();
         }
     }
 
