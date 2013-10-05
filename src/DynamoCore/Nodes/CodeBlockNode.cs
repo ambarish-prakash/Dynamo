@@ -66,7 +66,8 @@ namespace Dynamo.Nodes
             for(int i=0;i<compiledCode.Count;i++)
             {
                 string singleExpression = compiledCode[i];
-                singleExpression = singleExpression.Replace("%t", "temp" + this.GUID.ToString());
+                string fakeVariableName = "temp" + this.GUID.ToString().Remove(7);
+                singleExpression = singleExpression.Replace("%t", fakeVariableName);
                 singleExpression = singleExpression.Replace("\r", "");
                 singleExpression = singleExpression.Replace("\n", "");
                 List<ProtoCore.AST.Node> singleNode;
@@ -93,6 +94,7 @@ namespace Dynamo.Nodes
             OutPortData.Clear();
             if (codeStatements.Count == 0 || codeStatements == null)
             {
+                RegisterAllPorts();
                 return;
             }
 
@@ -227,9 +229,10 @@ namespace Dynamo.Nodes
                     throw new ArgumentException("LHS invalid");
 
                 IdentifierNode assignedVar = binExprNode.LeftNode as IdentifierNode;
-                if (assignedVar.Name.Equals("temp" + nodeGuid.ToString()))
+                string fakeVariableName = "temp" + nodeGuid.ToString().Remove(7);
+                if (assignedVar.Name.Equals(fakeVariableName)) 
                 {
-                    AssignedVariable = null;
+                    AssignedVariable = new Variable(">",assignedVar.line);
                     //CurrentType = GetStatementType(binExprNode.RightNode); <-Implement this
                 }
                 else
@@ -269,12 +272,11 @@ namespace Dynamo.Nodes
             EndColumn = identNode.endCol;
         }
 
-        public Variable(GraphToDSCompiler.VariableLine varLine)
+        public Variable(string name, int line)
         {
-            Name = varLine.variable;
-            Row = varLine.line;
-            StartColumn = varLine.column;
-            EndColumn = StartColumn + Name.Length;
+            Name = name;
+            Row = line;
+            StartColumn = EndColumn = -1;
         }
         #endregion
     }
