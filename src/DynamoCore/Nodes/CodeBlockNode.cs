@@ -144,6 +144,7 @@ namespace Dynamo.Nodes
         }
         public enum StatementType 
         { 
+            None,
             Expression, 
             Literal, 
             Collection, 
@@ -185,6 +186,14 @@ namespace Dynamo.Nodes
                 Variable resultVariable = new Variable(astNode as IdentifierNode);
                 refVariableList.Add(new Variable(astNode as IdentifierNode));
             }
+            else if (astNode is ExprListNode)
+            {
+                ExprListNode currentNode = astNode as ExprListNode;
+                foreach (var node in currentNode.list)
+                {
+                    GetReferencedVariables(node, refVariableList);
+                }
+            }
             else
             {
                 //Its could be something like a literal
@@ -200,6 +209,30 @@ namespace Dynamo.Nodes
                 names.Add(refVar.Name);
             return names;
         }
+
+        public static StatementType GetStatementType(Node astNode,Guid nodeGuid)
+        {
+            if (astNode is FunctionDefinitionNode)
+                return StatementType.FuncDeclaration;
+            if (astNode is BinaryExpressionNode)
+            {
+                BinaryExpressionNode currentNode = astNode as BinaryExpressionNode;
+                string fakeVariableName = "temp" + nodeGuid.ToString().Remove(7);
+                if (!(currentNode.LeftNode is IdentifierNode) || currentNode.Optr != ProtoCore.DSASM.Operator.assign)
+                    throw new ArgumentException();
+                if (!currentNode.LeftNode.Name.Equals(fakeVariableName))
+                    return StatementType.Expression;
+                if (currentNode.RightNode is IdentifierNode)
+                    return StatementType.AssignmentVar;
+                if (currentNode.RightNode is ExprListNode)
+                    return StatementType.Collection;
+                if (currentNode.RightNode is DoubleNode || currentNode.RightNode is IntNode)
+                    return StatementType.Literal;
+                if (currentNode.RightNode is StringNode)
+                    return StatementType.Literal;
+            }
+            return StatementType.None;
+        }
         #endregion
 
         #region Properties
@@ -214,11 +247,11 @@ namespace Dynamo.Nodes
         #endregion
 
         #region Private Methods
-        //TODO : NOT YET SET STATEMENT TYPE. DO THAT....
         private Statement(Node astNode, Guid nodeGuid)
         {
             StartLine = astNode.line;
             EndLine = astNode.endLine;
+            CurrentType = GetStatementType(astNode,nodeGuid);
 
             if (astNode is BinaryExpressionNode)
             {
@@ -233,7 +266,6 @@ namespace Dynamo.Nodes
                 if (assignedVar.Name.Equals(fakeVariableName)) 
                 {
                     AssignedVariable = new Variable(">",assignedVar.line);
-                    //CurrentType = GetStatementType(binExprNode.RightNode); <-Implement this
                 }
                 else
                 {
@@ -246,10 +278,11 @@ namespace Dynamo.Nodes
             }
             else if (astNode is FunctionDefinitionNode)
             {
-
             }
             else
                 throw new ArgumentException("Must be func def or assignment");
+
+            Variable.SetCorrectColumn(referencedVariables, this.CurrentType);
         }
         #endregion
     }
@@ -260,6 +293,15 @@ namespace Dynamo.Nodes
         public int StartColumn { get; private set; }
         public int EndColumn { get; private set; }
         public string Name { get; private set; }
+
+        #region Private Methods
+        private void MoveColumnBack()
+        {
+            StartColumn -= 13;
+            EndColumn -= 13;
+        }
+        #endregion
+
 
         #region Public Methods
         public Variable(IdentifierNode identNode)
@@ -277,6 +319,17 @@ namespace Dynamo.Nodes
             Name = name;
             Row = line;
             StartColumn = EndColumn = -1;
+        }
+
+        public static void SetCorrectColumn(List<Variable> refVar, Statement.StatementType type)
+        {
+            if (refVar == null)
+                return;
+            if (type != Statement.StatementType.Expression)
+            {
+                foreach (var singleVar in refVar)
+                    singleVar.MoveColumnBack();
+            }
         }
         #endregion
     }
