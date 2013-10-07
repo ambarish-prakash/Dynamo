@@ -2,15 +2,17 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Xml;
 using ProtoCore.AST;
 using ProtoCore.AST.AssociativeAST;
 using Dynamo.Models;
+using Dynamo.Utilities;
 
 namespace Dynamo.Nodes
 {
     [NodeName("Code Block")]
     [NodeCategory(BuiltinNodeCategories.CORE_LISTS)]
-    [NodeDescription("Allows for code to be wriiten")] //<--Change the descp :|
+    [NodeDescription("Allows for code to be written")] //<--Change the descp :|
     public partial class DynamoCodeBlockNode : NodeModel
     {
         private string code = "Your Code Goes Here";
@@ -21,6 +23,7 @@ namespace Dynamo.Nodes
         {
             codeStatements = new List<Statement>();
             code = "Your Code Goes Here";
+            this.ArgumentLacing = LacingStrategy.Disabled;
         }
 
         #region Properties
@@ -50,6 +53,51 @@ namespace Dynamo.Nodes
             }
         }
         #endregion
+
+        #region Protected Methods
+        protected override void SaveNode(XmlDocument xmlDoc, XmlElement nodeElement, SaveContext context)
+        {
+            base.SaveNode(xmlDoc, nodeElement, context);
+            XmlElementHelper helper = new XmlElementHelper(nodeElement);
+            helper.SetAttribute("CodeText", code);
+#if false
+            foreach (var inPort in InPortData)
+            {
+                XmlElement portNode = xmlDoc.CreateElement("CBNInput");
+                portNode.SetAttribute("name", inPort.NickName);
+                nodeElement.AppendChild(portNode);
+            }
+            foreach (var outPort in OutPortData)
+            {
+                XmlElement portNode = xmlDoc.CreateElement("CBNOutput");
+                portNode.SetAttribute("name", outPort.NickName);
+                nodeElement.AppendChild(portNode);
+            }
+#endif
+        }
+
+        protected override void LoadNode(XmlNode nodeElement)
+        {
+            base.LoadNode(nodeElement);
+            XmlElementHelper helper = new XmlElementHelper(nodeElement as XmlElement);
+            Code = helper.ReadString("CodeText");
+#if false
+            XmlNodeList inputs = nodeElement.SelectNodes("CBNInput");
+            XmlNodeList outputs = nodeElement.SelectNodes("CBNOutput");
+            foreach (XmlElement inputNode in inputs)
+            {
+                string nickName = inputNode.Attributes["name"].Value;
+                InPortData.Add(new PortData(nickName,"Input", typeof(object)));
+            }
+            foreach (XmlElement outputNode in outputs)
+            {
+                string nickName = outputNode.Attributes["name"].Value;
+                OutPortData.Add(new PortData(nickName, "Input", typeof(object)));
+            }
+            RegisterAllPorts();
+#endif
+        }
+        #endregion 
 
         #region Private Methods
         private void ProcessCode()
@@ -136,7 +184,7 @@ namespace Dynamo.Nodes
                 }
             }
             foreach(string name in uniqueInputs)
-                InPortData.Add(new PortData(name, "Output", typeof(object)));
+                InPortData.Add(new PortData(name, "Input", typeof(object)));
         }
         #endregion
 
@@ -176,7 +224,6 @@ namespace Dynamo.Nodes
             return new Statement(astNode,nodeGuid);
         }
 
-        //NOT TESTED WITH THIS COMMIT
         public static void GetReferencedVariables(Node astNode , List<Variable> refVariableList)
         {
             //DFS Search to find all identifier nodes
@@ -318,6 +365,8 @@ namespace Dynamo.Nodes
             if (identNode == null)
                 throw new ArgumentNullException();
             Name = identNode.Value;
+            if (identNode.ArrayDimensions != null)
+                ;//  Implement!
             Row = identNode.line;
             StartColumn = identNode.col;
             EndColumn = identNode.endCol;
