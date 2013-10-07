@@ -54,7 +54,7 @@ namespace Dynamo.Nodes
         #region Private Methods
         private void ProcessCode()
         {
-            //New code : Revamp everything
+            //New code => Revamp everything
             codeStatements.Clear(); 
 
             if (Code.Equals("")) //If its null then remove all the ports
@@ -68,11 +68,14 @@ namespace Dynamo.Nodes
             unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
             List<ProtoCore.AST.Node> resultNode = new List<Node>();
             List<string> compiledCode;
+            
+            //To allow for statements like a+b; which are not handled by the parser, enter a fake assigned
+            //variable and compute. Cannot handle comments as of now
             GraphToDSCompiler.GraphUtilities.CompileExpression(Code, out compiledCode);
+            string fakeVariableName = "temp" + this.GUID.ToString().Remove(7);
             for(int i=0;i<compiledCode.Count;i++)
             {
                 string singleExpression = compiledCode[i];
-                string fakeVariableName = "temp" + this.GUID.ToString().Remove(7);
                 singleExpression = singleExpression.Replace("%t", fakeVariableName);
                 singleExpression = singleExpression.Replace("\r", "");
                 singleExpression = singleExpression.Replace("\n", "");
@@ -82,6 +85,7 @@ namespace Dynamo.Nodes
                 resultNode.Add(singleNode[0]);
             }
 
+            //Create an instance of statement for each code statement written by the user
             foreach (Node node in resultNode)
             {
                 Statement tempStatement;
@@ -91,7 +95,7 @@ namespace Dynamo.Nodes
                 codeStatements.Add(tempStatement);
             }
 
-            SetPorts(); //Set the input and output ports based on the 
+            SetPorts(); //Set the input and output ports based on the statements
         }
 
         private void SetPorts()
