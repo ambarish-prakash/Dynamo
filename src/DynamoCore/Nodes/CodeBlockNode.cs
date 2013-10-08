@@ -60,20 +60,6 @@ namespace Dynamo.Nodes
             base.SaveNode(xmlDoc, nodeElement, context);
             XmlElementHelper helper = new XmlElementHelper(nodeElement);
             helper.SetAttribute("CodeText", code);
-#if false
-            foreach (var inPort in InPortData)
-            {
-                XmlElement portNode = xmlDoc.CreateElement("CBNInput");
-                portNode.SetAttribute("name", inPort.NickName);
-                nodeElement.AppendChild(portNode);
-            }
-            foreach (var outPort in OutPortData)
-            {
-                XmlElement portNode = xmlDoc.CreateElement("CBNOutput");
-                portNode.SetAttribute("name", outPort.NickName);
-                nodeElement.AppendChild(portNode);
-            }
-#endif
         }
 
         protected override void LoadNode(XmlNode nodeElement)
@@ -81,21 +67,22 @@ namespace Dynamo.Nodes
             base.LoadNode(nodeElement);
             XmlElementHelper helper = new XmlElementHelper(nodeElement as XmlElement);
             Code = helper.ReadString("CodeText");
-#if false
-            XmlNodeList inputs = nodeElement.SelectNodes("CBNInput");
-            XmlNodeList outputs = nodeElement.SelectNodes("CBNOutput");
-            foreach (XmlElement inputNode in inputs)
+        }
+        protected override void  SerializeCore(XmlElement element, SaveContext context)
+        {
+            base.SerializeCore(element, context);
+            XmlElementHelper helper = new XmlElementHelper(element);
+            helper.SetAttribute("CodeText", code);
+        }
+
+        protected override void  DeserializeCore(XmlElement element, SaveContext context)
+        {
+            base.DeserializeCore(element, context);
+            if (context == SaveContext.Undo)
             {
-                string nickName = inputNode.Attributes["name"].Value;
-                InPortData.Add(new PortData(nickName,"Input", typeof(object)));
+                XmlElementHelper helper = new XmlElementHelper(element as XmlElement);
+                Code = helper.ReadString("CodeText");
             }
-            foreach (XmlElement outputNode in outputs)
-            {
-                string nickName = outputNode.Attributes["name"].Value;
-                OutPortData.Add(new PortData(nickName, "Input", typeof(object)));
-            }
-            RegisterAllPorts();
-#endif
         }
         #endregion 
 
@@ -167,7 +154,7 @@ namespace Dynamo.Nodes
             foreach (Statement s in codeStatements)
             {
                 if (s.AssignedVariable != null)
-                    OutPortData.Add(new PortData(s.AssignedVariable.Name, "Output", typeof(object)));
+                    OutPortData.Add(new PortData(">", "Output", typeof(object)));
             }
         }
 
