@@ -231,7 +231,7 @@ namespace Dynamo.Nodes
 
     }
 
-    public abstract class ElementSelectionBase : SelectionBase, IDrawable
+    public abstract class ElementSelectionBase : SelectionBase
     {
         protected Func<string, Element> _selectionAction;
 
@@ -265,26 +265,12 @@ namespace Dynamo.Nodes
                 throw new Exception("Nothing selected.");
             }
 
-            VisualizationGeometry.Add(SelectedElement);
-
             return Value.NewContainer(SelectedElement);
         }
-
-        #region IDrawableInterface
-
-        public List<object> VisualizationGeometry
-        {
-            get
-            {
-                return dynSettings.Controller.VisualizationManager.Visualizations[this.GUID.ToString()].Geometry;
-            }
-        }
-
-        #endregion
     }
 
     [IsInteractive(true)]
-    public abstract class ReferenceSelectionBase : SelectionBase, IDrawable
+    public abstract class ReferenceSelectionBase : SelectionBase
     {
         protected Func<string, Reference> _selectionAction;
         protected Reference _reference;
@@ -313,22 +299,10 @@ namespace Dynamo.Nodes
                 DynamoLogger.Instance.Log(e);
             }
         }
-
-        #region IDrawableInterface
-
-        public List<object> VisualizationGeometry
-        {
-            get
-            {
-                return dynSettings.Controller.VisualizationManager.Visualizations[this.GUID.ToString()].Geometry;
-            }
-        }
-
-        #endregion
     }
 
     [IsInteractive(true)]
-    public abstract class MultipleElementSelectionBase : NodeWithOneOutput, IDrawable
+    public abstract class MultipleElementSelectionBase : NodeWithOneOutput
     {
         private TextBlock _tb;
         private Button _selectButton;
@@ -500,11 +474,6 @@ namespace Dynamo.Nodes
 
             var els = SelectedElements.Select(Value.NewContainer).ToList();
 
-            foreach (Element e in _selected)
-            {
-                VisualizationGeometry.Add(e);
-            }
-
             return Value.NewList(Utils.SequenceToFSharpList(els));
         }
 
@@ -545,18 +514,6 @@ namespace Dynamo.Nodes
                 }
             }
         }
-
-        #region IDrawableInterface
-
-        public List<object> VisualizationGeometry
-        {
-            get
-            {
-                return dynSettings.Controller.VisualizationManager.Visualizations[this.GUID.ToString()].Geometry;
-            }
-        }
-
-        #endregion
     }
 
     [NodeName("Select Family Instance")]
@@ -708,8 +665,6 @@ namespace Dynamo.Nodes
                     break;
             }
 
-            VisualizationGeometry.Add(face);
-
             return Value.NewContainer(face);
         }
 
@@ -791,8 +746,6 @@ namespace Dynamo.Nodes
 
         public override Value Evaluate(FSharpList<Value> args)
         {
-            VisualizationGeometry.Add((Edge)dynRevitSettings.Doc.Document.GetElement(_reference).GetGeometryObjectFromReference(_reference));
-
             return Value.NewContainer(_reference);
         }
 
@@ -1210,8 +1163,6 @@ namespace Dynamo.Nodes
                 throw new Exception("could not evaluate point on face or edge of the element");
 
             old_refXyz = _reference;
-
-            VisualizationGeometry.Add(thisXYZ);
 
             return Value.NewContainer(thisXYZ);
         }

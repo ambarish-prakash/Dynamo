@@ -13,7 +13,7 @@ namespace Dynamo.Nodes
     [NodeName("Project Point On Curve")]
     [NodeCategory(BuiltinNodeCategories.MODIFYGEOMETRY_INTERSECT)]
     [NodeDescription("Project a point onto a curve.")]
-    public class ProjectPointOnCurve : RevitTransactionNode //, IDrawable, IClearable
+    public class ProjectPointOnCurve : RevitTransactionNode
     {
         private readonly PortData _xyzPort = new PortData(
             "xyz", "The nearest point on the curve.", typeof(Value.Container));
@@ -46,8 +46,6 @@ namespace Dynamo.Nodes
             double t = ir.Parameter;
             double d = ir.Distance;
 
-            VisualizationGeometry.Add(pt);
-
             outPuts[_xyzPort] = Value.NewContainer(pt);
             outPuts[_tPort] = Value.NewNumber(t);
             outPuts[_dPort] = Value.NewNumber(d);
@@ -57,7 +55,7 @@ namespace Dynamo.Nodes
     [NodeName("Project Point On Face/Plane")]
     [NodeCategory(BuiltinNodeCategories.MODIFYGEOMETRY_INTERSECT)]
     [NodeDescription("Project a point onto a face or plane.")]
-    public class ProjectPointOnFace : RevitTransactionNode //, IDrawable, IClearable
+    public class ProjectPointOnFace : RevitTransactionNode
     {
         private readonly PortData _xyzPort = new PortData(
             "xyz", "The nearest point to the projected point on the face.", typeof(Value.Container));
@@ -134,8 +132,6 @@ namespace Dynamo.Nodes
                 }
                 catch { }
             }
-
-            VisualizationGeometry.Add(pt);
 
             outPuts[_xyzPort] = Value.NewContainer(pt);
             outPuts[_uvPort] = Value.NewContainer(uv);

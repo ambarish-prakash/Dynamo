@@ -17,7 +17,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Windows.Controls; //for boolean option
 using System.Xml;              //for boolean option  
-using System.Windows.Media.Media3D;
 using System.Reflection;
 using Autodesk.Revit.DB;
 using Dynamo.Controls;
@@ -31,24 +30,12 @@ using Dynamo.Utilities;
 
 namespace Dynamo.Nodes
 {
-    public abstract class GeometryBase : NodeWithOneOutput, IDrawable
+    public abstract class GeometryBase : NodeWithOneOutput
     {
         protected GeometryBase()
         {
             ArgumentLacing = LacingStrategy.Longest;
         }
-
-        #region IDrawableInterface
-
-        public List<object> VisualizationGeometry
-        {
-            get
-            {
-                return dynSettings.Controller.VisualizationManager.Visualizations[this.GUID.ToString()].Geometry;
-            }
-        }
-
-        #endregion
     }
 
     [NodeName("XYZ")]
@@ -74,8 +61,6 @@ namespace Dynamo.Nodes
             z = ((Value.Number)args[2]).Item;
 
             var pt = new XYZ(x, y, z);
-
-            VisualizationGeometry.Add(pt);
 
             return Value.NewContainer(pt);
         }
@@ -141,9 +126,6 @@ namespace Dynamo.Nodes
         {
             ReferencePoint point;
             point = (ReferencePoint)((Value.Container)args[0]).Item;
-
-            //pts.Add(point.Position);
-            VisualizationGeometry.Add(point.Position);
 
             return Value.NewContainer(point.Position);
         }
@@ -260,8 +242,6 @@ namespace Dynamo.Nodes
 
         public override Value Evaluate(FSharpList<Value> args)
         {
-            //pts.Add(XYZ.Zero);
-            VisualizationGeometry.Add(XYZ.Zero);
             return Value.NewContainer(XYZ.Zero);
         }
     }
@@ -348,9 +328,6 @@ namespace Dynamo.Nodes
 
             XYZ pt = n * (xyz - base_xyz) + base_xyz;
 
-            //pts.Add(pt);
-            VisualizationGeometry.Add(pt);
-
             return Value.NewContainer(pt);
         }
     }
@@ -377,9 +354,6 @@ namespace Dynamo.Nodes
 
             XYZ pt = xyz.Multiply(n);
 
-            //pts.Add(pt);
-            VisualizationGeometry.Add(pt);
-
             return Value.NewContainer(pt);
         }
     }
@@ -405,9 +379,6 @@ namespace Dynamo.Nodes
 
             XYZ pt = xyza + xyzb;
 
-            //pts.Add(pt);
-            VisualizationGeometry.Add(pt);
-
             return Value.NewContainer(pt);
         }
     }
@@ -432,9 +403,6 @@ namespace Dynamo.Nodes
             XYZ xyzb = (XYZ)((Value.Container)args[1]).Item;
 
             XYZ pt = xyza - xyzb;
-
-            //pts.Add(pt);
-            VisualizationGeometry.Add(pt);
 
             return Value.NewContainer(pt);
         }
@@ -483,9 +451,6 @@ namespace Dynamo.Nodes
         {
             XYZ pt = (XYZ)((Value.Container)args[0]).Item;
 
-            //pts.Add(pt);
-            VisualizationGeometry.Add(pt);
-
             return Value.NewContainer(pt.Negate());
         }
     }
@@ -516,6 +481,7 @@ namespace Dynamo.Nodes
     [NodeName("XYZ Start End Vector")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_POINT)]
     [NodeDescription("Calculate the normalized vector from one xyz to another.")]
+    [NodeSearchTags("unitized", "normalized", "vector")]
     public class XyzStartEndVector : GeometryBase
     {
         public XyzStartEndVector()
@@ -539,6 +505,7 @@ namespace Dynamo.Nodes
     [NodeName("UV Grid")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_POINT)]
     [NodeDescription("Creates a grid of UVs from a domain.")]
+    [NodeSearchTags("point", "array", "collection", "field", "uv")]
     public class UvGrid: NodeWithOneOutput
     {
         public UvGrid()
@@ -585,6 +552,7 @@ namespace Dynamo.Nodes
     [NodeName("UV Random")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_POINT)]
     [NodeDescription("Creates a grid of UVs froma domain.")]
+    [NodeSearchTags("point", "array", "collection", "field")]
     public class UvRandom: NodeWithOneOutput
     {
         public UvRandom()
@@ -637,6 +605,7 @@ namespace Dynamo.Nodes
     [NodeName("XYZ Grid")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_POINT)]
     [NodeDescription("Creates a grid of XYZs.")]
+    [NodeSearchTags("point", "array", "collection", "field")]
     public class ReferencePtGrid: GeometryBase
     {
         public ReferencePtGrid()
@@ -682,9 +651,6 @@ namespace Dynamo.Nodes
                     {
                         XYZ pt = new XYZ(x, y, z);
 
-                        //pts.Add(pt);
-                        VisualizationGeometry.Add(pt);
-
                         result = FSharpList<Value>.Cons(
                            Value.NewContainer(pt),
                            result
@@ -705,6 +671,7 @@ namespace Dynamo.Nodes
     [NodeName("XYZ Array On Curve")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_CURVE)]
     [NodeDescription("Creates a list of XYZs along a curve.")]
+    [NodeSearchTags("divide", "array", "curve", "repeat")]
     public class XyzArrayAlongCurve : GeometryBase
     {
         public XyzArrayAlongCurve()
@@ -751,9 +718,6 @@ namespace Dynamo.Nodes
                 var pt = !XyzOnCurveOrEdge.curveIsReallyUnbound(crvRef) ? crvRef.Evaluate(t, true) : crvRef.Evaluate(t * crvRef.Period, false);
                 result = FSharpList<Value>.Cons(Value.NewContainer(pt), result);
 
-                //pts.Add(pt);
-                VisualizationGeometry.Add(pt);
-
                 return Value.NewList(
                   ListModule.Reverse(result)
                );
@@ -764,9 +728,6 @@ namespace Dynamo.Nodes
                 t = xCount / xi; // create normalized curve param by dividing current number by total number
                 var pt = !XyzOnCurveOrEdge.curveIsReallyUnbound(crvRef) ? crvRef.Evaluate(t, true) : crvRef.Evaluate(t * crvRef.Period, false);
                 result = FSharpList<Value>.Cons(Value.NewContainer( pt ), result );
-
-                //pts.Add(pt);
-                VisualizationGeometry.Add(pt);
             }
 
             return Value.NewList(
@@ -956,6 +917,7 @@ namespace Dynamo.Nodes
     [NodeName("Line")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_CURVE)]
     [NodeDescription("Creates a geometric line.")]
+    [NodeSearchTags("curve", "two point", "line")]
     public class LineBound: GeometryBase
     {
         public LineBound()
@@ -993,9 +955,6 @@ namespace Dynamo.Nodes
 
             }
 
-            //VisualizationGeometry.Add(line);
-            VisualizationGeometry.Add(line);
-
             return Value.NewContainer(line);
         }
     }
@@ -1003,6 +962,7 @@ namespace Dynamo.Nodes
     [NodeName("Arc By Start Mid End")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_CURVE)]
     [NodeDescription("Creates a geometric arc given start, middle and end points in XYZ.")]
+    [NodeSearchTags("arc", "circle", "start", "middle", "end", "3 point", "three")]
     public class ArcStartMiddleEnd : GeometryBase
     {
         public ArcStartMiddleEnd()
@@ -1040,9 +1000,6 @@ namespace Dynamo.Nodes
 
             }
 
-            //VisualizationGeometry.Add(a);
-            VisualizationGeometry.Add(a);
-
             return Value.NewContainer(a);
         }
     }
@@ -1050,6 +1007,7 @@ namespace Dynamo.Nodes
     [NodeName("Arc by Ctr Pt")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_CURVE)]
     [NodeDescription("Creates a geometric arc given a center point and two end parameters. Start and End Values may be between 0 and 2*PI in Radians")]
+    [NodeSearchTags("arc", "circle", "center", "radius")]
     public class ArcCenter : GeometryBase
     {
         public ArcCenter()
@@ -1093,16 +1051,14 @@ namespace Dynamo.Nodes
                 );
             }
 
-            //VisualizationGeometry.Add(a);
-            VisualizationGeometry.Add(a);
-
             return Value.NewContainer(a);
         }
     }
 
-    [NodeName("Transform Crv")]
+    [NodeName("Transform Curve")]
     [NodeCategory(BuiltinNodeCategories.CREATEGEOMETRY_CURVE)]
     [NodeDescription("Returns the curve (c) transformed by the transform (t).")]
+    [NodeSearchTags("move", "transform", "curve", "line")]
     public class CurveTransformed: GeometryBase
     {
         public CurveTransformed()
@@ -1121,8 +1077,6 @@ namespace Dynamo.Nodes
             var trans = (Transform)((Value.Container)args[1]).Item;
 
             var crvTrans = curve.get_Transformed(trans);
-
-            VisualizationGeometry.Add(crvTrans);
 
             return Value.NewContainer(crvTrans);
         }
@@ -1162,9 +1116,6 @@ namespace Dynamo.Nodes
                 //Curve circle = this.UIDocument.Application.Application.Create.NewArc(ptA, radius, 0, 2 * Math.PI, XYZ.BasisX, XYZ.BasisY);
                 circle = dynRevitSettings.Doc.Application.Application.Create.NewArc((XYZ)((ReferencePoint)ptA).Position, radius, 0, 2 * RevitPI, XYZ.BasisX, XYZ.BasisY);
             }
-
-            //VisualizationGeometry.Add(circle);
-            VisualizationGeometry.Add(circle);
 
             return Value.NewContainer(circle);
         }
@@ -1219,9 +1170,6 @@ namespace Dynamo.Nodes
                      center, radX, radY, trf.BasisX, trf.BasisY, 0, 2 * RevitPI
                   );
             }
-
-            //VisualizationGeometry.Add(ell);
-            VisualizationGeometry.Add(ell);
 
             return Value.NewContainer(ell);
         }
@@ -1278,8 +1226,6 @@ namespace Dynamo.Nodes
                      center, radX, radY, trf.BasisX, trf.BasisY, start, end
                   );
             }
-
-            VisualizationGeometry.Add(ell);
 
             return Value.NewContainer(ell);
         }
@@ -1400,9 +1346,6 @@ namespace Dynamo.Nodes
             {
                 hs = dynRevitSettings.Doc.Application.Application.Create.NewHermiteSpline(ctrlPts, false);
             }
-
-            //VisualizationGeometry.Add(hs);
-            VisualizationGeometry.Add(hs);
 
             return Value.NewContainer(hs);
         }
@@ -1589,9 +1532,6 @@ namespace Dynamo.Nodes
                 }
             }
 
-            //solids.Add(mySolid);
-            VisualizationGeometry.Add(mySolid);
-
             return Value.NewContainer(mySolid);
         }
     }
@@ -1640,9 +1580,6 @@ namespace Dynamo.Nodes
 
             var result = GeometryCreationUtilities.CreateExtrusionGeometry(loops, direction, distance);
 
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
-
             return Value.NewContainer(result);
         }
     }
@@ -1682,10 +1619,6 @@ namespace Dynamo.Nodes
             }
 
             var result = GeometryCreationUtilities.CreateBlendGeometry(firstLoop, secondLoop, vertPairs);
-
-
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
 
             return Value.NewContainer(result);
         }
@@ -1733,16 +1666,6 @@ namespace Dynamo.Nodes
             cl.Append(l2);
             cl.Append(l3);
             cl.Append(l4);
-
-            //VisualizationGeometry.Add(l1);
-            //VisualizationGeometry.Add(l2);
-            //VisualizationGeometry.Add(l3);
-            //VisualizationGeometry.Add(l4);
-
-            VisualizationGeometry.Add(l1);
-            VisualizationGeometry.Add(l2);
-            VisualizationGeometry.Add(l3);
-            VisualizationGeometry.Add(l4);
 
             return Value.NewContainer(cl);
         }
@@ -1968,9 +1891,6 @@ namespace Dynamo.Nodes
 
             Solid result = BooleanOperationsUtils.ExecuteBooleanOperation(firstSolid, secondSolid, opType);
 
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
-
             return Value.NewContainer(result);
         }
     }
@@ -2114,9 +2034,6 @@ namespace Dynamo.Nodes
                 }
             }
 
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
-
             return Value.NewContainer(result);
         }
     }
@@ -2169,9 +2086,6 @@ namespace Dynamo.Nodes
             }
             if (result == null)
                 throw new Exception(" could not make solid by replacement of face or faces");
-            
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
 
             return Value.NewContainer(result);
         }
@@ -2253,9 +2167,6 @@ namespace Dynamo.Nodes
             }
             if (result == null)
                 throw new Exception(" could not make solid by blending requested edges with given radius");
-            
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
 
             return Value.NewContainer(result);
         }
@@ -2337,9 +2248,6 @@ namespace Dynamo.Nodes
             }
             if (result == null)
                 throw new Exception(" could not make solid by chamfering requested edges with given chamfer size");
-            
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
 
             return Value.NewContainer(result);
         }
@@ -2376,9 +2284,6 @@ namespace Dynamo.Nodes
 
             Solid result = GeometryCreationUtilities.CreateRevolvedGeometry(thisFrame, loopList, sAngle, eAngle);
 
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
-
             return Value.NewContainer(result);
         }
     }
@@ -2409,9 +2314,6 @@ namespace Dynamo.Nodes
             loopList.Add(profileLoop);
 
             Solid result = GeometryCreationUtilities.CreateSweptGeometry(pathLoop, attachementIndex, attachementPar, loopList);
-
-            //solids.Add(result);
-            VisualizationGeometry.Add(result);
 
             return Value.NewContainer(result);
         }
@@ -2523,9 +2425,6 @@ namespace Dynamo.Nodes
             }
             if (resultSolid == null)
                 throw new Exception("Could not make patched solid, list Onesided Edges to investigate");
-            
-            //solids.Add(resultSolid);
-            VisualizationGeometry.Add(resultSolid);
 
             return Value.NewContainer(resultSolid);
         }
@@ -2602,9 +2501,6 @@ namespace Dynamo.Nodes
             if (resultSolid == null)
                 throw new Exception("Failed to make solid, please check the input.");
 
-            //solids.Add(resultSolid);
-            VisualizationGeometry.Add(resultSolid);
-
             return Value.NewContainer(resultSolid);
         }
     }
@@ -2636,9 +2532,6 @@ namespace Dynamo.Nodes
             for (int i = 1; i < enumerable.Count(); i++)
             {
                 Line l = dynRevitSettings.Revit.Application.Create.NewLineBound(enumerable.ElementAt(i), enumerable.ElementAt(i-1));
-
-                VisualizationGeometry.Add(l);
-                VisualizationGeometry.Add(l);
 
                 results = FSharpList<Value>.Cons(Value.NewContainer(l), results);
             }
