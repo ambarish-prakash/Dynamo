@@ -99,29 +99,29 @@ namespace Dynamo.Nodes
             }
 
             //Parse the text and assign each AST node to a statement instance
-            Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
-            unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
-            List<ProtoCore.AST.Node> resultNode = new List<Node>();
             List<string> compiledCode;
             
             //To allow for statements like a+b; which are not handled by the parser, enter a fake assigned
             //variable and compute. Cannot handle comments as of now
             GraphToDSCompiler.GraphUtilities.CompileExpression(Code, out compiledCode);
             string fakeVariableName = "temp" + this.GUID.ToString().Remove(7);
+            string codeToParse = "";
             for(int i=0;i<compiledCode.Count;i++)
             {
                 string singleExpression = compiledCode[i];
                 singleExpression = singleExpression.Replace("%t", fakeVariableName);
-                singleExpression = singleExpression.Replace("\r", "");
-                singleExpression = singleExpression.Replace("\n", "");
-                List<ProtoCore.AST.Node> singleNode;
-                if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(singleExpression, unboundIdentifiers, out singleNode))
-                    throw new Exception();
-                resultNode.Add(singleNode[0]);
+                //singleExpression = singleExpression.Replace("\r\n","\n");
+                codeToParse += singleExpression;
             }
 
+            Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
+            unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
+            List<ProtoCore.AST.Node> resultNodes;
+            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(codeToParse, unboundIdentifiers, out resultNodes))
+                throw new Exception();
+
             //Create an instance of statement for each code statement written by the user
-            foreach (Node node in resultNode)
+            foreach (Node node in resultNodes)
             {
                 Statement tempStatement;
                 {
@@ -144,20 +144,35 @@ namespace Dynamo.Nodes
             }
 
             SetInputPorts();
-            SetOutputPorts();
+            
+            //Since output ports need to be aligned with the statements, calculate the margins
+            //needed based on the statement lines and add them to port data.
+            List<double> verticalMargin = CalculateMarginInPixels();
+            SetOutputPorts(verticalMargin);
 
             RegisterAllPorts();
         }
 
-        private void SetOutputPorts()
+        private void SetOutputPorts(List<double> verticalMargin)
         {
-            foreach (Statement s in codeStatements)
+            int outportCount = 0;
+            for(int i=0;i<codeStatements.Count;i++)
             {
+                Statement s = codeStatements[i];
                 if (s.AssignedVariable != null)
-                    OutPortData.Add(new PortData(">", "Output", typeof(object)));
+                {
+                    OutPortData.Add(new PortData(">", "Output", typeof(object))
+                       {
+                           VerticalMargin = verticalMargin[outportCount]
+                       });
+                    outportCount++;
+                }
             }
         }
 
+        /// <summary>
+        /// Set a port for each different input parameter
+        /// </summary>
         private void SetInputPorts()
         {
             List<string> uniqueInputs = new List<string>();
@@ -172,6 +187,37 @@ namespace Dynamo.Nodes
             }
             foreach(string name in uniqueInputs)
                 InPortData.Add(new PortData(name, "Input", typeof(object)));
+        }
+
+        /// <summary>
+        /// Based on the start line of ech statement and type, it returns a list of
+        /// top margins required for the ports
+        /// </summary>
+        private List<double> CalculateMarginInPixels()
+        {
+            List<double> result = new List<double>();
+            int currentOffset = 1; //Used to mark the line immediately after the last output port line
+            double initialMarginRequired = 4, margin;
+            for (int i = 0; i < codeStatements.Count; i++)
+            {
+                Statement.StatementType sType = codeStatements[i].CurrentType;
+                if (sType == Statement.StatementType.FuncDeclaration) //FuncDec doesnt have an output
+                    continue; 
+                //Margin = diff between this line and prev port line x port height
+                if (codeStatements[i].StartLine - currentOffset >= 0)
+                {
+                    margin = (codeStatements[i].StartLine - currentOffset) * 20;
+                    currentOffset = codeStatements[i].StartLine + 1;
+                }
+                else
+                {
+                    margin = 0.0;
+                    currentOffset += 1;
+                }
+                result.Add(margin + initialMarginRequired);
+                initialMarginRequired = 0;
+            }
+            return result;
         }
         #endregion
 
@@ -228,7 +274,12 @@ namespace Dynamo.Nodes
             else if (astNode is IdentifierNode)
             {
                 Variable resultVariable = new Variable(astNode as IdentifierNode);
-                refVariableList.Add(new Variable(astNode as IdentifierNode));
+                refVariableList.Add(resultVariable);
+                if ((astNode as IdentifierNode).ArrayDimensions != null)
+                {
+                    Node arrayExpr = (astNode as IdentifierNode).ArrayDimensions.Expr;
+                    GetReferencedVariables(arrayExpr, refVariableList);
+                }
             }
             else if (astNode is ExprListNode)
             {
@@ -237,6 +288,11 @@ namespace Dynamo.Nodes
                 {
                     GetReferencedVariables(node, refVariableList);
                 }
+            }
+            else if (astNode is FunctionDotCallNode)
+            {
+                FunctionDotCallNode currentNode = astNode as FunctionDotCallNode;
+                Variable result = new Variable(currentNode.FunctionCall.Function as IdentifierNode);
             }
             else
             {
@@ -322,11 +378,17 @@ namespace Dynamo.Nodes
             }
             else if (astNode is FunctionDefinitionNode)
             {
+                AssignedVariable = null;
+                FunctionDefinitionNode currentNode = astNode as FunctionDefinitionNode;
+                foreach(Node node in currentNode.FunctionBody.Body)
+                {
+                    subStatements.Add(new Statement(node, nodeGuid));
+                }
             }
             else
                 throw new ArgumentException("Must be func def or assignment");
 
-            Variable.SetCorrectColumn(referencedVariables, this.CurrentType);
+            Variable.SetCorrectColumn(referencedVariables, this.CurrentType,this.StartLine);
         }
         #endregion
     }
@@ -339,10 +401,15 @@ namespace Dynamo.Nodes
         public string Name { get; private set; }
 
         #region Private Methods
-        private void MoveColumnBack()
+        private void MoveColumnBack(int line)
         {
-            StartColumn -= 13;
-            EndColumn -= 13;
+            //Move the column of the variable back only if it is on the same line
+            //as the fake variable
+            if (Row == line)
+            {
+                StartColumn -= 13;
+                EndColumn -= 13;
+            }
         }
         #endregion
 
@@ -366,14 +433,14 @@ namespace Dynamo.Nodes
             StartColumn = EndColumn = -1;
         }
 
-        public static void SetCorrectColumn(List<Variable> refVar, Statement.StatementType type)
+        public static void SetCorrectColumn(List<Variable> refVar, Statement.StatementType type, int line)
         {
             if (refVar == null)
                 return;
             if (type != Statement.StatementType.Expression)
             {
                 foreach (var singleVar in refVar)
-                    singleVar.MoveColumnBack();
+                    singleVar.MoveColumnBack(line);
             }
         }
         #endregion

@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using Dynamo.Nodes;
+using System.Windows;
 using System.Xml;
 using Dynamo.Selection;
 using Microsoft.FSharp.Collections;
@@ -1312,12 +1313,14 @@ namespace Dynamo.Models
                     {
                         p = outPorts[index];
                         p.PortName = data.NickName;
+                        p.MarginThickness = new Thickness(0, data.VerticalMargin, 0, 0);
                         return p;
                     }
 
                     p = new PortModel(index, portType, this, data.NickName)
                     {
-                        UsingDefaultValue = false
+                        UsingDefaultValue = false,
+                        MarginThickness = new Thickness(0, data.VerticalMargin, 0, 0)
                     };
 
                     OutPorts.Add(p);

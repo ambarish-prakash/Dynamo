@@ -628,7 +628,8 @@ namespace Dynamo.Nodes
                 Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF)),
                 AcceptsReturn = true
             };
-
+            
+            
             nodeUI.inputGrid.Children.Add(tb);
             Grid.SetColumn(tb, 0);
             Grid.SetRow(tb, 0);

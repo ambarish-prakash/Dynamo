@@ -263,5 +263,10 @@ namespace Dynamo.Nodes
                 enter = false;
             }
         }
+        protected override void OnGotFocus(RoutedEventArgs e)
+        {
+            base.OnGotFocus(e);
+            this.FontSize = 19.1 / this.FontFamily.LineSpacing;
+        }
     }
 }
