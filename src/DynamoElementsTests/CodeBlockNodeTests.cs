@@ -30,22 +30,70 @@ namespace Dynamo.Tests
             iNode = null;
             Assert.Catch<ArgumentNullException>(delegate { Variable var2 = new Variable(iNode); });
         }
+
         [Test]
-        public void TestStatement1()
+        public void TestStatement_FunctionDef()
         {
-            string code = @"a=b+10;";
+            string code = @"
+def foo()
+{
+a = 5;
+return = a;
+}";
             Guid tempGuid = new Guid();
             CodeBlockNode commentNode;
             ProtoCore.AST.Node resultNode;
+            List<string> topLevelRefVar = new List<string>();
+            List<string> allRefVar = new List<string>();
             resultNode = GraphToDSCompiler.GraphUtilities.Parse(code, out commentNode);
             BinaryExpressionNode ben = (resultNode as CodeBlockNode).Body[0] as BinaryExpressionNode;
             Statement s1 = Statement.CreateInstance((resultNode as CodeBlockNode).Body[0], tempGuid);
+            topLevelRefVar = Statement.GetReferencedVariableNames(s1,true);
+            allRefVar = Statement.GetReferencedVariableNames(s1, false);
+            Assert.AreEqual(2, s1.StartLine);
+            Assert.AreEqual(6, s1.EndLine);
+            Assert.AreEqual(null, s1.AssignedVariable);
+            Assert.AreEqual(Statement.StatementType.FuncDeclaration, s1.CurrentType);
+            Assert.AreEqual(0,topLevelRefVar.Count);
+            Assert.AreEqual(1, allRefVar.Count);
+            Assert.AreEqual("a", allRefVar[0]);
+
+            code = @"def foo() = 10;";
+            resultNode = GraphToDSCompiler.GraphUtilities.Parse(code, out commentNode);
+            ben = (resultNode as CodeBlockNode).Body[0] as BinaryExpressionNode;
+            s1 = Statement.CreateInstance((resultNode as CodeBlockNode).Body[0], tempGuid);
+            topLevelRefVar = Statement.GetReferencedVariableNames(s1,true);
+            allRefVar = Statement.GetReferencedVariableNames(s1, false);
             Assert.AreEqual(1, s1.StartLine);
             Assert.AreEqual(1, s1.EndLine);
-            Assert.AreEqual("a", s1.AssignedVariable.Name);
-            //Assert.AreEqual("b", s1.ReferencedVariables[0].Name);
-            //Assert.AreEqual(1, s1.ReferencedVariables.Count);
+            Assert.AreEqual(null, s1.AssignedVariable);
+            Assert.AreEqual(Statement.StatementType.FuncDeclaration, s1.CurrentType);
+            Assert.AreEqual(0, topLevelRefVar.Count);
+            Assert.AreEqual(0, allRefVar.Count);
         }
 
+        [Test]
+        public void TestStatement_InlineExpression()
+        {
+            string code = @"
+a = 
+b>c+5 ? 
+d-2 : 
+e+f ;";
+            Guid tempGuid = new Guid();
+            CodeBlockNode commentNode;
+            ProtoCore.AST.Node resultNode;
+            List<string> refVarNames = new List<string>();
+            resultNode = GraphToDSCompiler.GraphUtilities.Parse(code, out commentNode);
+            BinaryExpressionNode ben = (resultNode as CodeBlockNode).Body[0] as BinaryExpressionNode;
+            Statement s1 = Statement.CreateInstance((resultNode as CodeBlockNode).Body[0], tempGuid);
+            refVarNames = Statement.GetReferencedVariableNames(s1, true);
+            Assert.AreEqual(2, s1.StartLine);
+            Assert.AreEqual(5, s1.EndLine);
+            Assert.AreEqual("a",s1.AssignedVariable.Name);
+            Assert.AreEqual(Statement.StatementType.Expression, s1.CurrentType);
+            Assert.AreEqual(5, refVarNames.Count);
+            Assert.AreEqual(true, refVarNames.Contains("d"));
+        }
     }
 }

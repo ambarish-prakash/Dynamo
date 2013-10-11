@@ -117,7 +117,7 @@ namespace Dynamo.Nodes
             Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
             unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
             List<ProtoCore.AST.Node> resultNodes;
-            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(codeToParse, unboundIdentifiers, out resultNodes))
+            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(code, unboundIdentifiers, out resultNodes))
                 throw new Exception();
 
             //Create an instance of statement for each code statement written by the user
@@ -178,7 +178,7 @@ namespace Dynamo.Nodes
             List<string> uniqueInputs = new List<string>();
             foreach (var singleStatement in codeStatements)
             {
-                List<string> inputNames = singleStatement.GetReferencedVariableNames();
+                List<string> inputNames = Statement.GetReferencedVariableNames(singleStatement,true);
                 foreach (string name in inputNames)
                 {
                     if (!uniqueInputs.Contains(name))
@@ -223,7 +223,7 @@ namespace Dynamo.Nodes
 
     }
 
-    //NOT TESTED
+    //NOT TESTED - currently happening
     public class Statement
     {
         #region Enums
@@ -293,6 +293,14 @@ namespace Dynamo.Nodes
             {
                 FunctionDotCallNode currentNode = astNode as FunctionDotCallNode;
                 Variable result = new Variable(currentNode.FunctionCall.Function as IdentifierNode);
+                refVariableList.Add(result);
+            }
+            else if (astNode is InlineConditionalNode)
+            {
+                InlineConditionalNode currentNode = astNode as InlineConditionalNode;
+                GetReferencedVariables(currentNode.ConditionExpression, refVariableList);
+                GetReferencedVariables(currentNode.TrueExpression, refVariableList);
+                GetReferencedVariables(currentNode.FalseExpression, refVariableList);
             }
             else
             {
@@ -302,11 +310,16 @@ namespace Dynamo.Nodes
             }
         }
 
-        public List<string> GetReferencedVariableNames()
+        public static List<string> GetReferencedVariableNames(Statement s, bool onlyTopLevel)
         {
             List<string> names = new List<string>();
-            foreach (Variable refVar in referencedVariables)
+            foreach (Variable refVar in s.referencedVariables)
                 names.Add(refVar.Name);
+            if (!onlyTopLevel)
+            {
+                foreach (Statement subStatement in s.subStatements)
+                    names.AddRange(GetReferencedVariableNames(subStatement,onlyTopLevel));
+            }
             return names;
         }
 
@@ -378,8 +391,10 @@ namespace Dynamo.Nodes
             }
             else if (astNode is FunctionDefinitionNode)
             {
-                AssignedVariable = null;
                 FunctionDefinitionNode currentNode = astNode as FunctionDefinitionNode;
+                AssignedVariable = null;
+                if (currentNode.FunctionBody.endLine != -1)
+                    EndLine = currentNode.FunctionBody.endLine;
                 foreach(Node node in currentNode.FunctionBody.Body)
                 {
                     subStatements.Add(new Statement(node, nodeGuid));
