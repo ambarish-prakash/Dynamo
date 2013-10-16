@@ -615,7 +615,7 @@ namespace Dynamo.Nodes
         }
     }
 
-    public partial class DynamoCodeBlockNode
+    public partial class CodeBlockNodeModel
     {
         public override void SetupCustomUIElements(object ui)
         {

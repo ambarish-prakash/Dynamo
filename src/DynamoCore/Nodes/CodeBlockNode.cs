@@ -13,18 +13,25 @@ namespace Dynamo.Nodes
     [NodeName("Code Block")]
     [NodeCategory(BuiltinNodeCategories.CORE_LISTS)]
     [NodeDescription("Allows for code to be written")] //<--Change the descp :|
-    public partial class DynamoCodeBlockNode : NodeModel
+    public partial class CodeBlockNodeModel : NodeModel
     {
         private string code = "Your Code Goes Here";
         private List<Statement> codeStatements = new List<Statement>();
 
-
-        public DynamoCodeBlockNode()
+        #region Public Methods
+        public CodeBlockNodeModel()
         {
             codeStatements = new List<Statement>();
             code = "Your Code Goes Here";
             this.ArgumentLacing = LacingStrategy.Disabled;
         }
+
+        public void DisplayError()
+        {
+            DynamoLogger.Instance.Log("Error in Code Block Node");
+            this.State = ElementState.ERROR;
+        }
+        #endregion
 
         #region Properties
         public string Code
@@ -92,7 +99,7 @@ namespace Dynamo.Nodes
             //New code => Revamp everything
             codeStatements.Clear(); 
 
-            if (Code.Equals("")) //If its null then remove all the ports
+            if (Code.Equals("") || Code.Equals("Your Code Goes Here")) //If its null then remove all the ports
             {
                 SetPorts();
                 return;
@@ -117,17 +124,21 @@ namespace Dynamo.Nodes
             Dictionary<int, List<GraphToDSCompiler.VariableLine>> unboundIdentifiers;
             unboundIdentifiers = new Dictionary<int, List<GraphToDSCompiler.VariableLine>>();
             List<ProtoCore.AST.Node> resultNodes;
-            if (!GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(code, unboundIdentifiers, out resultNodes))
-                throw new Exception();
-
-            //Create an instance of statement for each code statement written by the user
-            foreach (Node node in resultNodes)
+            if (GraphToDSCompiler.GraphUtilities.ParseCodeBlockNodeStatements(codeToParse, unboundIdentifiers, out resultNodes))
             {
-                Statement tempStatement;
+                //Create an instance of statement for each code statement written by the user
+                foreach (Node node in resultNodes)
                 {
-                    tempStatement = Statement.CreateInstance(node, this.GUID);
+                    Statement tempStatement;
+                    {
+                        tempStatement = Statement.CreateInstance(node, this.GUID);
+                    }
+                    codeStatements.Add(tempStatement);
                 }
-                codeStatements.Add(tempStatement);
+            }
+            else
+            {
+                DisplayError();
             }
 
             SetPorts(); //Set the input and output ports based on the statements
@@ -159,7 +170,7 @@ namespace Dynamo.Nodes
             for(int i=0;i<codeStatements.Count;i++)
             {
                 Statement s = codeStatements[i];
-                if (s.AssignedVariable != null)
+                if (s.DefinedVariable != null)
                 {
                     OutPortData.Add(new PortData(">", "Output", typeof(object))
                        {
@@ -275,11 +286,13 @@ namespace Dynamo.Nodes
             {
                 Variable resultVariable = new Variable(astNode as IdentifierNode);
                 refVariableList.Add(resultVariable);
-                if ((astNode as IdentifierNode).ArrayDimensions != null)
-                {
-                    Node arrayExpr = (astNode as IdentifierNode).ArrayDimensions.Expr;
-                    GetReferencedVariables(arrayExpr, refVariableList);
-                }
+                GetReferencedVariables((astNode as IdentifierNode).ArrayDimensions,refVariableList);
+            }
+            else if (astNode is ArrayNode)
+            {
+                ArrayNode currentNode = astNode as ArrayNode;
+                GetReferencedVariables(currentNode.Expr, refVariableList);
+                GetReferencedVariables(currentNode.Type, refVariableList);
             }
             else if (astNode is ExprListNode)
             {
@@ -301,6 +314,13 @@ namespace Dynamo.Nodes
                 GetReferencedVariables(currentNode.ConditionExpression, refVariableList);
                 GetReferencedVariables(currentNode.TrueExpression, refVariableList);
                 GetReferencedVariables(currentNode.FalseExpression, refVariableList);
+            }
+            else if (astNode is RangeExprNode)
+            {
+                RangeExprNode currentNode = astNode as RangeExprNode;
+                GetReferencedVariables(currentNode.FromNode, refVariableList);
+                GetReferencedVariables(currentNode.ToNode, refVariableList);
+                GetReferencedVariables(currentNode.StepNode, refVariableList);
             }
             else
             {
@@ -352,7 +372,7 @@ namespace Dynamo.Nodes
         public int StartLine { get; private set; }
         public int EndLine { get; private set; }
         
-        public Variable AssignedVariable { get; private set; }
+        public Variable DefinedVariable { get; private set; }
         
         public State CurrentState { get; private set; }
         public StatementType CurrentType { get; private set; }
@@ -378,11 +398,11 @@ namespace Dynamo.Nodes
                 string fakeVariableName = "temp" + nodeGuid.ToString().Remove(7);
                 if (assignedVar.Name.Equals(fakeVariableName)) 
                 {
-                    AssignedVariable = new Variable(">",assignedVar.line);
+                    DefinedVariable = new Variable(">",assignedVar.line);
                 }
                 else
                 {
-                    AssignedVariable = new Variable(assignedVar);
+                    DefinedVariable = new Variable(assignedVar);
                 }
 
                 List<Variable> refVariableList = new List<Variable>();
@@ -392,7 +412,7 @@ namespace Dynamo.Nodes
             else if (astNode is FunctionDefinitionNode)
             {
                 FunctionDefinitionNode currentNode = astNode as FunctionDefinitionNode;
-                AssignedVariable = null;
+                DefinedVariable = null;
                 if (currentNode.FunctionBody.endLine != -1)
                     EndLine = currentNode.FunctionBody.endLine;
                 foreach(Node node in currentNode.FunctionBody.Body)
@@ -412,7 +432,11 @@ namespace Dynamo.Nodes
     {
         public int Row {get; private set;}
         public int StartColumn { get; private set; }
-        public int EndColumn { get; private set; }
+        public int EndColumn { 
+            get
+            {
+                return StartColumn + Name.Length;
+            } }
         public string Name { get; private set; }
 
         #region Private Methods
@@ -423,7 +447,6 @@ namespace Dynamo.Nodes
             if (Row == line)
             {
                 StartColumn -= 13;
-                EndColumn -= 13;
             }
         }
         #endregion
@@ -438,14 +461,12 @@ namespace Dynamo.Nodes
                 ;//  Implement!
             Row = identNode.line;
             StartColumn = identNode.col;
-            EndColumn = identNode.endCol;
         }
 
         public Variable(string name, int line)
         {
             Name = name;
             Row = line;
-            StartColumn = EndColumn = -1;
         }
 
         public static void SetCorrectColumn(List<Variable> refVar, Statement.StatementType type, int line)
