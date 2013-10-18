@@ -15,6 +15,7 @@ using Dynamo.Selection;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Dynamo.Utilities;
 using Dynamo.ViewModels;
+using DynCmd = Dynamo.ViewModels.DynamoViewModel;
 
 namespace Dynamo.Controls
 {
@@ -299,16 +300,10 @@ namespace Dynamo.Controls
             {
                 // create node
                 var guid = Guid.NewGuid();
-                var nodeParams = new Dictionary<string, object>()
-                {
-                    {"name", "Code Block"},
-                    {"transformFromOuterCanvasCoordinates", true},
-                    {"guid", guid}
-                };
+                dynSettings.Controller.DynamoViewModel.ExecuteCommand(
+                    new DynCmd.CreateNodeCommand(guid, "Code Block", 0, 0, true, true));
 
-                dynSettings.Controller.DynamoModel.CreateNode(nodeParams);
-
-                //place node
+                //move node
                 var placedNode = dynSettings.Controller.DynamoViewModel.Model.Nodes.Find((node) => node.GUID == guid);
                 if (placedNode != null)
                 {
