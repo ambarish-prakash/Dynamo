@@ -3,18 +3,18 @@
 
 [Setup]
 AppName=Dynamo
-AppVerName=Dynamo 0.7.0
+AppVerName=Dynamo 0.6.2
 AppPublisher=Autodesk, Inc.
 AppID={{12A2BEA3-7641-4AEC-B344-9B49C8DDFF1A}
 AppCopyright=
 AppPublisherURL=http://www.dynamobim.com
 AppSupportURL=
 AppUpdatesURL=
-AppVersion=0.7.0
-VersionInfoVersion=0.7.0
+AppVersion=0.6.2
+VersionInfoVersion=0.6.2
 VersionInfoCompany=Autodesk 
-VersionInfoDescription=Dynamo 0.7.0
-VersionInfoTextVersion=Dynamo 0.7.0
+VersionInfoDescription=Dynamo 0.6.2
+VersionInfoTextVersion=Dynamo 0.6.2
 VersionInfoCopyright=
 DefaultDirName=C:\Autodesk\Dynamo\Core
 DefaultGroupName=
@@ -29,7 +29,7 @@ ShowLanguageDialog=auto
 DirExistsWarning=no
 UninstallFilesDir={app}\Uninstall
 UninstallDisplayIcon={app}\Nodes_32_32.ico
-UninstallDisplayName=Dynamo 0.7.0
+UninstallDisplayName=Dynamo 0.6.2
 UsePreviousAppDir=no
 
 [Types]
@@ -59,7 +59,7 @@ Source: Extra\fsharp_redist.exe; DestDir: {app}; Flags: ignoreversion overwriter
 Source: Extra\IronPython-2.7.3.msi; DestDir: {tmp}; Flags: deleteafterinstall;
 ;Training Files
 Source: temp\Samples\*.*; DestDir: {app}\samples; Flags: ignoreversion overwritereadonly recursesubdirs; Components: DynamoTrainingFiles
-Source: temp\Definitions\*.dyf; DestDir: {app}\definitions; Flags: ignoreversion overwritereadonly recursesubdirs; Components: DynamoTrainingFiles
+Source: temp\dynamo_packages\*.dyf; DestDir: {app}\dynamo_packages; Flags: ignoreversion overwritereadonly recursesubdirs; Components: DynamoTrainingFiles
 
 [UninstallDelete]
 Type: files; Name: "{commonappdata}\Autodesk\Revit\Addins\2013\Dynamo.addin"

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Linq;
 using System.Windows.Threading;
@@ -40,10 +41,21 @@ namespace Dynamo.Controls
         public ThreadSafeList<Point3D> _pointsCacheSelected = new ThreadSafeList<Point3D>();
         public ThreadSafeList<Point3D> _linesCacheSelected = new ThreadSafeList<Point3D>();
         public MeshGeometry3D _meshCacheSelected = new MeshGeometry3D();
- 
+        private ThreadSafeList<Point3D> _gridCache = new ThreadSafeList<Point3D>();
+  
         public Material HelixMeshMaterial
         {
             get { return Materials.White; }
+        }
+
+        public ThreadSafeList<Point3D> HelixGrid
+        {
+            get { return _gridCache; }
+            set
+            {
+                _gridCache = value;
+                NotifyPropertyChanged("HelixGrid");
+            }
         }
 
         public ThreadSafeList<Point3D> HelixPoints
@@ -160,6 +172,32 @@ namespace Dynamo.Controls
                 dynSettings.Controller.VisualizationManager.VisualizationUpdateComplete += VisualizationManager_VisualizationUpdateComplete;
 
             _vm = DataContext as Watch3DFullscreenViewModel;
+
+            DrawGrid();
+        }
+
+        /// <summary>
+        /// Create the grid
+        /// </summary>
+        private void DrawGrid()
+        {
+            HelixGrid = null;
+
+            var newLines = new ThreadSafeList<Point3D>();
+
+            for (int x = -10; x <= 10; x++)
+            {
+                newLines.Add(new Point3D(x,-10,-.001));
+                newLines.Add(new Point3D(x,10,-.001));
+            }
+
+            for (int y = -10; y <= 10; y++)
+            {
+                newLines.Add(new Point3D(-10, y, -.001));
+                newLines.Add(new Point3D(10, y, -.001));
+            }
+
+            HelixGrid = newLines;
         }
 
         void VisualizationManager_VisualizationUpdateComplete(object sender, VisualizationEventArgs e)
@@ -239,6 +277,36 @@ namespace Dynamo.Controls
                     return null;
             }
         }
+
+        private void Watch_view_OnMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            Point mousePos = e.GetPosition(watch_view);
+            PointHitTestParameters hitParams = new PointHitTestParameters(mousePos);
+            VisualTreeHelper.HitTest(watch_view, null, ResultCallback, hitParams);
+        }
+
+        public HitTestResultBehavior ResultCallback(HitTestResult result)
+        {
+            // Did we hit 3D?
+            var rayResult = result as RayHitTestResult;
+            if (rayResult != null)
+            {
+                // Did we hit a MeshGeometry3D?
+                var rayMeshResult =
+                    rayResult as RayMeshGeometry3DHitTestResult;
+
+                if (rayMeshResult != null)
+                {
+                    // Yes we did!
+                    var pt = rayMeshResult.PointHit;
+                    dynSettings.Controller.VisualizationManager.LookupSelectedElement(pt.X, pt.Y, pt.Z);
+                    return HitTestResultBehavior.Stop;
+                }
+            }
+
+            return HitTestResultBehavior.Continue;
+        }
+
 
     }
 }

@@ -34,7 +34,7 @@ namespace Dynamo.Utilities
                 }
             }
 
-            var newNodeWorkspace = new FuncWorkspace(args.Name, args.Category, args.Description, 0, 0)
+            var newNodeWorkspace = new CustomNodeWorkspaceModel(args.Name, args.Category, args.Description, 0, 0)
             {
                 WatchChanges = false,
                 HasUnsavedChanges = true
@@ -42,7 +42,7 @@ namespace Dynamo.Utilities
 
             var newNodeDefinition = new FunctionDefinition(Guid.NewGuid())
             {
-                Workspace = newNodeWorkspace
+                WorkspaceModel = newNodeWorkspace
             };
 
             currentWorkspace.DisableReporting();
@@ -305,7 +305,7 @@ namespace Dynamo.Utilities
                                                   inputReceiverNode,
                                                   0,
                                                   inputReceiverData,
-                                                  0 );
+                                                  PortType.INPUT);
 
                     if (conn1 != null)
                         newNodeWorkspace.Connectors.Add(conn1);
@@ -317,7 +317,7 @@ namespace Dynamo.Utilities
                                                      curriedNode.InnerNode,
                                                      0,
                                                      0,
-                                                     0);
+                                                     PortType.INPUT);
                     if (conn != null)
                         newNodeWorkspace.Connectors.Add(conn);
 
@@ -327,7 +327,7 @@ namespace Dynamo.Utilities
                         inputReceiverNode,
                         0,
                         inputReceiverData,
-                        0);
+                        PortType.INPUT);
 
                     if (conn2 != null)
                         newNodeWorkspace.Connectors.Add(conn2);
@@ -397,7 +397,7 @@ namespace Dynamo.Utilities
                                 node,
                                 outputSenderData,
                                 0,
-                                0 );
+                                PortType.INPUT);
                     
                     if (conn != null)
                         newNodeWorkspace.Connectors.Add(conn);
@@ -448,7 +448,7 @@ namespace Dynamo.Utilities
                         curriedNode.InnerNode,
                         outputSenderData,
                         targetPortIndex + 1,
-                        0);
+                        PortType.INPUT);
 
                     if (conn != null)
                         newNodeWorkspace.Connectors.Add(conn);
@@ -457,24 +457,12 @@ namespace Dynamo.Utilities
 
             #endregion
 
-            //set the name on the node
-            //collapsedNode.NickName = args.Name;
-            //currentWorkspace.Nodes.Remove(collapsedNode);
-
             // save and load the definition from file
-            dynSettings.Controller.DynamoModel.SaveFunction(newNodeDefinition, false, true, true);
+            newNodeDefinition.SyncWithWorkspace(true, true);
             dynSettings.Controller.DynamoModel.Workspaces.Add(newNodeWorkspace);
-            //var customNodeInfo = new CustomNodeInfo(newNodeDefinition.FunctionId, args.Name, args.Category, args.Description, null);
-            //dynSettings.Controller.CustomNodeManager.AddFunctionDefinition(newNodeDefinition.FunctionId, newNodeDefinition);
-            //dynSettings.Controller.CustomNodeManager.SetNodeInfo(customNodeInfo);
-            //dynSettings.Controller.SearchViewModel.Add(args.Name, args.Category, args.Description, newNodeDefinition.FunctionId);
 
-            var collapsedNode = dynSettings.Controller.DynamoModel.CreateNode_Internal(new Dictionary<string, object>()
-                {
-                    {"name", newNodeDefinition.FunctionId.ToString() },
-                    {"x", avgX },
-                    {"y", avgY }
-                });
+            string name = newNodeDefinition.FunctionId.ToString();
+            var collapsedNode = dynSettings.Controller.DynamoModel.CreateNode(avgX, avgY, name);
 
             // place the node as intended, not centered
             collapsedNode.X = avgX;
@@ -489,7 +477,7 @@ namespace Dynamo.Utilities
                                     collapsedNode,
                                     nodeTuple.Item2,
                                     nodeTuple.Item3,
-                                    0 );
+                                    PortType.INPUT);
 
                 if (conn != null)
                     currentWorkspace.Connectors.Add(conn);
@@ -503,7 +491,7 @@ namespace Dynamo.Utilities
                                     nodeTuple.Item1,
                                     nodeTuple.Item2,
                                     nodeTuple.Item3,
-                                    0 );
+                                    PortType.INPUT);
 
                 if (conn != null)
                     currentWorkspace.Connectors.Add(conn);

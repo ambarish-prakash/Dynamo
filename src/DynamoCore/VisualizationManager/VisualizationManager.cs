@@ -3,18 +3,17 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Threading;
 using System.Windows.Media.Media3D;
 using System.Linq;
 using Autodesk.LibG;
 using Dynamo.Models;
-using Dynamo.Nodes;
 using Dynamo.Selection;
 using Dynamo.Services;
 using Dynamo.Utilities;
 using HelixToolkit.Wpf;
 using Microsoft.Practices.Prism.ViewModel;
 using Newtonsoft.Json;
+using Octree.OctreeSearch;
 using String = System.String;
 
 //testing to see if github integration works.
@@ -23,7 +22,7 @@ namespace Dynamo
 {
     public delegate void VisualizationCompleteEventHandler(object sender, VisualizationEventArgs e);
 
-    public delegate void VisualizerDelegate(NodeModel node, object geom, RenderDescription target);
+    public delegate void VisualizerDelegate(NodeModel node, object geom, RenderDescription target, Octree.OctreeSearch.Octree octree);
 
     /// <summary>
     /// Visualization manager consolidates functionality for creating visualizations 
@@ -43,6 +42,7 @@ namespace Dynamo
         private bool _drawToAlternateContext = true;
         private object myLock = new object();
         protected bool isUpdating = false;
+        private Octree.OctreeSearch.Octree octree;
 
         #endregion
 
@@ -124,6 +124,12 @@ namespace Dynamo
             set { _alternateContextName = value; }
         }
 
+        public Octree.OctreeSearch.Octree Octree
+        {
+            get { return octree; }
+            set { octree = value; }
+        }
+
         #endregion
 
         #region events
@@ -142,16 +148,22 @@ namespace Dynamo
 
         protected VisualizationManager()
         {
-            dynSettings.Controller.DynamoModel.NodeAdded += new NodeHandler(DynamoModel_NodeAdded);
-            dynSettings.Controller.DynamoModel.NodeDeleted += new NodeHandler(DynamoModel_NodeDeleted);
             dynSettings.Controller.DynamoModel.ConnectorDeleted += new ConnectorHandler(DynamoModel_ConnectorDeleted);
             dynSettings.Controller.EvaluationCompleted += new EventHandler(Controller_EvaluationCompleted);
             dynSettings.Controller.RequestsRedraw += new EventHandler(Controller_RequestsRedraw);
             DynamoSelection.Instance.Selection.CollectionChanged += new NotifyCollectionChangedEventHandler(Selection_CollectionChanged);
             dynSettings.Controller.DynamoModel.ModelCleared += new EventHandler(DynamoModel_ModelCleared);
             dynSettings.Controller.DynamoModel.CleaningUp += new CleanupHandler(DynamoModel_CleaningUp);
+            dynSettings.Controller.DynamoModel.NodeDeleted += new NodeHandler(DynamoModel_NodeDeleted);
 
             Visualizers.Add(typeof(GraphicItem), VisualizationManagerASM.DrawLibGGraphicItem);
+
+            octree = new Octree.OctreeSearch.Octree(10000,-10000,10000,-10000,10000,-10000,10000000);
+        }
+
+        void DynamoModel_NodeDeleted(NodeModel node)
+        {
+            UpdateVisualizations();
         }
 
         void DynamoModel_CleaningUp(object sender, EventArgs e)
@@ -266,26 +278,6 @@ namespace Dynamo
         }
 
         /// <summary>
-        /// Handler for the model's NodeDeleted event. Unregisters a node from visualization.
-        /// Triggers an update to the visualizations after un-registering a node
-        /// </summary>
-        /// <param name="node"></param>
-        void DynamoModel_NodeDeleted(NodeModel node)
-        {
-            UnregisterFromVisualization(node);
-        }
-
-        /// <summary>
-        /// Handler for the model's NodeAdded event. Registers a node for visualization.
-        /// Triggers an update to the visualizations after registering a node.
-        /// </summary>
-        /// <param name="node"></param>
-        void DynamoModel_NodeAdded(NodeModel node)
-        {
-            RegisterForVisualization(node);
-        }
-
-        /// <summary>
         /// Handler for a node model's property changed event
         /// </summary>
         /// <remarks>Used to observe changes in the nodes visualization state.
@@ -310,35 +302,6 @@ namespace Dynamo
                         Visualizations[node.GUID.ToString()].Clear();
                     }
                 }
-            }
-        }
-
-        /// <summary>
-        /// Register a node for visualization. Internally adds a list to the 
-        /// visualizations dictionary keyed by the provided id.
-        /// </summary>
-        /// <param name="id">The node to register for visualization</param>
-        public virtual void RegisterForVisualization(NodeModel node)
-        {
-            //add a key in the dictionary
-            if (!Visualizations.ContainsKey(node.GUID.ToString()))
-            {
-                Visualizations.Add(node.GUID.ToString(), new RenderDescription());
-            }
-
-            node.PropertyChanged += node_PropertyChanged;
-        }
-
-        /// <summary>
-        /// Unregister a node from visualization. Internally removes geometry from the visualizations dictionary
-        /// and ensures that geometry representations are unbound from views and deleted.
-        /// </summary>
-        /// <param name="id">The node to unregister from visualization</param>
-        public virtual void UnregisterFromVisualization(NodeModel node)
-        {
-            if (Visualizations.ContainsKey(node.GUID.ToString()))
-            {
-                Visualizations.Remove(node.GUID.ToString());
             }
         }
 
@@ -377,27 +340,6 @@ namespace Dynamo
                 VisualizationUpdateThread(null,null);
             else
                 worker.RunWorkerAsync();
-        }
-
-        /// <summary>
-        /// When a node enters it's evaluation, it is flagged for requiring update.
-        /// We dump the geometry collection and the render descption.
-        /// This ensures that, if the node errors, it will render nothing.
-        /// </summary>
-        /// <param name="node">The node whose visualization will be updated.</param>
-        public void MarkForUpdate(NodeModel node)
-        {
-            //re-register the node if this call is coming from a place
-            //where the node got dropped from visualization but then
-            //was re-added
-            if(!visualizations.ContainsKey(node.GUID.ToString()))
-                RegisterForVisualization(node);
-
-            var v = Visualizations[node.GUID.ToString()];
-            
-            //clear the gometry collection and the render description
-            //the geometry collection will be filled during update.
-            v.Clear();
         }
 
         /// <summary>
@@ -467,6 +409,7 @@ namespace Dynamo
 
                 if (node.IsUpstreamVisible)
                     drawables.AddRange(GetUpstreamDrawableIds(node.Inputs));
+
             }
 
             return drawables;
@@ -612,7 +555,7 @@ namespace Dynamo
             //draw what's in the container
             if (viz.Value != null)
             {
-                viz.Value.Invoke(node, geom, rd);
+                viz.Value.Invoke(node, geom, rd, octree);
             }
         }
 
@@ -623,42 +566,86 @@ namespace Dynamo
         /// <param name="args"></param>
         protected virtual void VisualizationUpdateThread(object s, DoWorkEventArgs args)
         {
-            var drawable_dict = GetAllDrawablesInModel();
-
-            Debug.WriteLine(String.Format("{0} visualizations to update", drawable_dict.Count()));
-            //Debug.WriteLine(String.Format("Updating visualizations on thread {0}.", Thread.CurrentThread.ManagedThreadId));
-
-            var sw = new Stopwatch();
-            sw.Start();
-
-            foreach (var drawable in drawable_dict)
+            try
             {
-                var node = drawable.Key as NodeModel;
 
-                if (!visualizations.ContainsKey(node.GUID.ToString()))
-                    continue;
+                var sw = new Stopwatch();
+                sw.Start();
 
-                var rd = Visualizations[node.GUID.ToString()];
-                rd.Clear();
+                octree.Clear();
 
-                if (node.IsVisible)
+                //get a dictionary of all nodes with drawable objects
+                var drawable_dict = GetAllDrawablesInModel();
+                
+                //cleanup visualizations that no longer have drawables
+                var drawableKeys = drawable_dict.Select(x => x.Key.GUID.ToString());
+                var toCleanup = Visualizations.Where(x => !drawableKeys.Contains(x.Key)).ToList();
+                toCleanup.ForEach(x=>Visualizations.Remove(x.Key));
+
+                Debug.WriteLine(string.Format("{0} drawables have been removed.", toCleanup.Count));
+
+                //add visualizations for nodes that have none
+                var toAdd = drawable_dict.Where(x => !Visualizations.ContainsKey(x.Key.GUID.ToString())).ToList();
+                toAdd.ForEach(RegisterNodeForVisualization);
+                Debug.WriteLine(string.Format("{0} drawables have been added.", toAdd.Count));
+
+                foreach (var drawable in drawable_dict)
                 {
-                    drawable.Value.ForEach(x=>VisualizeGeometry(node, x, rd));
-                }   
+                    var node = drawable.Key as NodeModel;
+
+                    var rd = Visualizations[node.GUID.ToString()];
+                    rd.Clear();
+
+                    if (node.IsVisible)
+                    {
+                        drawable.Value.ForEach(x => VisualizeGeometry(node, x, rd));
+                    }
+                }
+
+                sw.Stop();
+                Debug.WriteLine(String.Format("{0} elapsed for generating visualizations.", sw.Elapsed));
+
+                //generate an aggregated render description to send to the UI
+                var aggRd = AggregateRenderDescriptions();
+
+                LogVisualizationUpdateData(aggRd, sw.Elapsed.ToString());
+
+                //notify the UI of visualization completion
+                OnVisualizationUpdateComplete(this, new VisualizationEventArgs(aggRd));
             }
+            catch (Exception e)
+            {
+                DynamoLogger.Instance.Log(e);
+            }
+            finally
+            {
+                isUpdating = false;
+            }
+        }
 
-            sw.Stop();
-            Debug.WriteLine(String.Format("{0} elapsed for generating visualizations.", sw.Elapsed));
+        /// <summary>
+        /// Adds a visualization to the dictionary and adds a handler for node property changes.
+        /// </summary>
+        /// <param name="kvp"></param>
+        private void RegisterNodeForVisualization(KeyValuePair<NodeModel,List<object>> kvp)
+        {
+            Visualizations.Add(kvp.Key.GUID.ToString(), new RenderDescription());
+            kvp.Key.PropertyChanged += node_PropertyChanged;
+        }
 
-            //generate an aggregated render description to send to the UI
-            var aggRd = AggregateRenderDescriptions();
+        public void LookupSelectedElement(double x, double y, double z)
+        {
+            var id = octree.GetNode(x, y, z);
 
-            LogVisualizationUpdateData(aggRd, sw.Elapsed.ToString());
+            if (id == null)
+                return;
 
-            //notify the UI of visualization completion
-            OnVisualizationUpdateComplete(this, new VisualizationEventArgs(aggRd));
-
-            isUpdating = false;
+            var node = dynSettings.Controller.DynamoModel.Nodes.FirstOrDefault(n => n.GUID.ToString() == id.ToString());
+            if (node != null && !DynamoSelection.Instance.Selection.Contains(node))
+            {
+                DynamoSelection.Instance.ClearSelection();
+                DynamoSelection.Instance.Selection.Add(node);
+            }
         }
 
         #region utility methods
@@ -726,7 +713,13 @@ namespace Dynamo
         /// <returns></returns>
         public static List<object> GetDrawableFromValue(FScheme.Value value)
         {
+            
             var drawables = new List<object>();
+
+            if (value == null)
+            {
+                return drawables;
+            }
 
             var viz = dynSettings.Controller.VisualizationManager;
 
