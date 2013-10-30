@@ -93,6 +93,7 @@ namespace Dynamo.Nodes
             base.SaveNode(xmlDoc, nodeElement, context);
             XmlElementHelper helper = new XmlElementHelper(nodeElement);
             helper.SetAttribute("CodeText", code);
+            helper.SetAttribute("ShouldFocus", shouldFocus);
         }
 
         protected override void LoadNode(XmlNode nodeElement)
@@ -100,6 +101,7 @@ namespace Dynamo.Nodes
             base.LoadNode(nodeElement);
             XmlElementHelper helper = new XmlElementHelper(nodeElement as XmlElement);
             Code = helper.ReadString("CodeText");
+            shouldFocus = helper.ReadBoolean("ShouldFocus");
         }
         protected override void SerializeCore(XmlElement element, SaveContext context)
         {

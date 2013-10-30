@@ -329,7 +329,6 @@ namespace Dynamo.Nodes
         }
         #endregion
 
-<<<<<<< HEAD
         protected override void OnTextChanged(TextChangedEventArgs e)
         {
             ;//hide base
@@ -340,7 +339,7 @@ namespace Dynamo.Nodes
             if (!this.Text.Equals((DataContext as CodeBlockNodeModel).Code))
                 Pending = true;
             base.OnLostFocus(e);
-=======
+        }
 
         #region Private Methods
         private void HandleEscapeKey()
@@ -354,7 +353,6 @@ namespace Dynamo.Nodes
             {
                 (this as TextBox).Text = originalCode;
             }
->>>>>>> WaterMark and Escape(without undo fix):
         }
         #endregion
     }
