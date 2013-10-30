@@ -254,11 +254,12 @@ namespace Dynamo.Nodes
             this.Tag = "Your code goes here";
         }
 
+        
+        #region Event Handlers 
         /// <summary>
         /// To allow users to remove focus by pressing Shift Enter. Uses two bools (shift / enter)
-        /// and sets them when pressed/released
+        /// and sets them when pressed/released. Also handle for escape key
         /// </summary>
-        #region Key Press Event Handlers 
         protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
@@ -268,6 +269,10 @@ namespace Dynamo.Nodes
             else if (e.Key == Key.Enter || e.Key == Key.Return)
             {
                 enter = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                HandleEscapeKey();
             }
             if (shift == true && enter == true)
             {
@@ -286,8 +291,45 @@ namespace Dynamo.Nodes
                 enter = false;
             }
         }
+
+        protected override void OnLostFocus(RoutedEventArgs e)
+        {
+            CodeBlockNodeModel cbnNode = this.DataContext as CodeBlockNodeModel;
+            string originalCode = cbnNode.Code;
+            if (this.Text == "")
+            {
+                //If the node has some value , ie, if it had some user code, then it was not created 
+                //just then. Hence record then delete the node
+                if (!originalCode.Equals(""))
+                {
+                    System.Collections.Generic.List<ModelBase> deleteList = new System.Collections.Generic.List<ModelBase>();
+                    deleteList.Add(cbnNode);
+                    cbnNode.WorkSpace.RecordAndDeleteModels(deleteList);
+                }
+
+                //Otherwise, the node was created just then. Hence its creation and deletion 
+                //should not be recorded
+                else
+                {
+                    ;//Pop top undo redo part and delete node without recording
+                    //or delete node with recording and pop top 2 items
+                }
+            }
+            else
+            {
+                if (!this.Text.Equals(originalCode))
+                    Pending = true;
+                base.OnLostFocus(e);
+            }
+        }
+
+        protected override void  OnTextChanged(TextChangedEventArgs e)
+        {
+            e.Handled = true; // To block out the Parents event handler from being called
+        }
         #endregion
 
+<<<<<<< HEAD
         protected override void OnTextChanged(TextChangedEventArgs e)
         {
             ;//hide base
@@ -298,6 +340,22 @@ namespace Dynamo.Nodes
             if (!this.Text.Equals((DataContext as CodeBlockNodeModel).Code))
                 Pending = true;
             base.OnLostFocus(e);
+=======
+
+        #region Private Methods
+        private void HandleEscapeKey()
+        {
+            string originalCode = (this.DataContext as CodeBlockNodeModel).Code;
+            if (this.Text.Equals(originalCode))
+            {
+                dynSettings.ReturnFocusToSearch();
+            }
+            else
+            {
+                (this as TextBox).Text = originalCode;
+            }
+>>>>>>> WaterMark and Escape(without undo fix):
         }
+        #endregion
     }
 }

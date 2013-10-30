@@ -231,9 +231,10 @@ namespace Dynamo.Controls
         {
             if (ViewModel == null) return;
 
-            dynSettings.ReturnFocusToSearch();
+            
             //dynSettings.Bench.mainGrid.Focus();
             var view = WPF.FindUpVisualTree<DynamoView>(this);
+            dynSettings.ReturnFocusToSearch();
             view.mainGrid.Focus();
 
             Guid nodeGuid = this.ViewModel.NodeModel.GUID;

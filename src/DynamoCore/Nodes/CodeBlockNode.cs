@@ -157,12 +157,6 @@ namespace Dynamo.Nodes
             //New code => Revamp everything
             codeStatements.Clear();
 
-            if (Code.Equals("") || Code.Equals("Your Code Goes Here")) //If its null then remove all the ports
-            {
-                SetPorts(new List<string>());
-                return;
-            }
-
             //Parse the text and assign each AST node to a statement instance
             List<string> unboundIdentifiers = new List<string>();
             List<ProtoCore.AST.Node> resultNodes = new List<Node>();
