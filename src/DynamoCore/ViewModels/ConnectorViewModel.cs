@@ -32,6 +32,17 @@ namespace Dynamo.ViewModels
             }
         }
 
+        private bool _fisConnecting = false;
+        public bool fIsConnecting
+        {
+            get { return _fisConnecting; }
+            set
+            {
+                _fisConnecting = value;
+                RaisePropertyChanged("fIsConnecting");
+            }
+        }
+
         private bool _isHitTestVisible = true;
         public bool IsHitTestVisible
         {

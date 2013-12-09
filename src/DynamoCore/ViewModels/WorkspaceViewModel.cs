@@ -363,6 +363,7 @@ namespace Dynamo.ViewModels
                     foreach (var item in e.NewItems)
                     {
                         var viewModel = new ConnectorViewModel(item as ConnectorModel);
+                        viewModel.fIsConnecting = true;
                         _connectors.Add(viewModel);
                     }
                     break;

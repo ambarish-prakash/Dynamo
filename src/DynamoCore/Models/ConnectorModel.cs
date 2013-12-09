@@ -68,6 +68,8 @@ namespace Dynamo.Models
 
         private ConnectorModel(NodeModel start, NodeModel end, int startIndex, int endIndex, PortType portType)
         {
+            
+
             //Stopwatch sw = new Stopwatch();
             //sw.Start();
             pStart = start.OutPorts[startIndex];
