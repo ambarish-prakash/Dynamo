@@ -201,6 +201,14 @@ namespace Dynamo.Nodes
             get { return tempVariables; }
         }
 
+        /// <summary>
+        /// Unbound Identifiers which are used to create the input ports
+        /// </summary>
+        public List<string> InputIdentifiers
+        {
+            get { return inputIdentifiers; }
+        }
+
         #endregion
 
         #region Protected Methods

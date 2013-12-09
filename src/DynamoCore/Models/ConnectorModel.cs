@@ -39,7 +39,18 @@ namespace Dynamo.Models
                 pEnd = value;
             }
         }
-        
+
+        bool isImplicit = false;
+
+        public bool IsImplicit
+        {
+            get { return isImplicit; }
+            set 
+            { 
+                isImplicit = value;
+                RaisePropertyChanged("IsImplicit");
+            }
+        }
         #endregion 
 
         #region constructors

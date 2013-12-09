@@ -41,6 +41,7 @@ namespace Dynamo.Models
         private bool _usingDefaultValue;
         private bool _defaultValueEnabled;
         private Thickness marginThickness;
+        private bool isHitTestVisible;
         private double _headerHeight = 20;
         private double _portHeight = 20;
 
@@ -194,6 +195,19 @@ namespace Dynamo.Models
             }
         }
 
+        /// <summary>
+        /// Determines if the port is hit test visible or not
+        /// </summary>
+        public bool IsHitTestVisible
+        {
+            get { return isHitTestVisible; }
+            set
+            {
+                isHitTestVisible = value;
+                RaisePropertyChanged("IsHitTestVisible");
+            }
+        }
+
         #endregion
 
         public PortModel(PortType portType, NodeModel owner, string name)
@@ -205,6 +219,7 @@ namespace Dynamo.Models
             UsingDefaultValue = false;
             DefaultValueEnabled = false;
             MarginThickness = new Thickness(0);
+            isHitTestVisible = true;
         }
 
         /// <summary>

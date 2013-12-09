@@ -32,14 +32,16 @@ namespace Dynamo.ViewModels
             }
         }
 
-        private bool _fisConnecting = false;
-        public bool fIsConnecting
+        public bool IsImplicit
         {
-            get { return _fisConnecting; }
-            set
+            get 
             {
-                _fisConnecting = value;
-                RaisePropertyChanged("fIsConnecting");
+                //If a view model is created without a model, then return false as it cannot be 
+                // an implicit connection
+                if (_model != null)
+                    return _model.IsImplicit;
+                else
+                    return false;
             }
         }
 
@@ -319,6 +321,9 @@ namespace Dynamo.ViewModels
                 case "CurrentWorkspace":
                     RaisePropertyChanged("BezVisibility");
                     RaisePropertyChanged("PlineVisibility");
+                    break;
+                case "IsImplicit":
+                    RaisePropertyChanged("IsImplicit");
                     break;
             }
         }
