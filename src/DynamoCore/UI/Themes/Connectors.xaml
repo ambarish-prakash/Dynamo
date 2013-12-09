@@ -25,7 +25,7 @@
             <DataTrigger Binding="{Binding Path=IsConnecting, Mode=OneWay}" Value="True">
                 <Setter Property="StrokeDashArray" Value="1"/>
             </DataTrigger>
-            <DataTrigger Binding="{Binding Path=fIsConnecting, Mode=OneWay}" Value="True">
+            <DataTrigger Binding="{Binding Path=IsImplicit, Mode=OneWay}" Value="True">
                 <Setter Property="StrokeDashArray" Value="3,2"/>
             </DataTrigger>
         </Style.Triggers>

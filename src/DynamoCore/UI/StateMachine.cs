@@ -9,6 +9,7 @@ using Dynamo.Selection;
 using Dynamo.Utilities;
 using DynCmd = Dynamo.ViewModels.DynamoViewModel;
 using Dynamo.Core;
+using Dynamo.Nodes;
 
 namespace Dynamo.ViewModels
 {
@@ -200,14 +201,51 @@ namespace Dynamo.ViewModels
             if (connectorToRemove != null)
                 models.Add(connectorToRemove, UndoRedoRecorder.UserAction.Deletion);
             models.Add(newConnectorModel, UndoRedoRecorder.UserAction.Creation);
+
+
+            //Make the implicit connections
+            if (second.Owner is CodeBlockNodeModel)
+            {
+                List<ConnectorModel> implicitConnectors = MakeImplicitConnections(firstPort, second);
+                foreach (var implicitConnector in implicitConnectors)
+                    models.Add(implicitConnector, UndoRedoRecorder.UserAction.Creation);
+            }
+
             _model.RecordModelsForUndo(models);
             this.SetActiveConnector(null);
+        }
+
+        private List<ConnectorModel> MakeImplicitConnections(PortModel startPort, PortModel endPort)
+        {
+            List<ConnectorModel> implicitConnectors = new List<ConnectorModel>();
+            var cbn = endPort.Owner as CodeBlockNodeModel;
+            string variableName = cbn.InputIdentifiers[endPort.Index];
+
+            var codeBlockNodes = this._model.Nodes.Where(x => (x is CodeBlockNodeModel));
+
+            foreach (var node in codeBlockNodes)
+            {
+                var codeBlockNode = node as CodeBlockNodeModel;
+                int endIndex = CodeBlockNodeModel.GetInportIndex(codeBlockNode, variableName);
+                if (endIndex == -1 || codeBlockNode == cbn)
+                    continue;
+
+                PortModel newEndPort = codeBlockNode.InPorts[endIndex];
+                var implicitConnector = ConnectorModel.Make(startPort.Owner, codeBlockNode, 
+                    startPort.Index, endIndex, PortType.INPUT);
+                implicitConnector.IsImplicit = true;
+                newEndPort.IsHitTestVisible = false;
+                this._model.Connectors.Add(implicitConnector);
+                implicitConnectors.Add(implicitConnector);
+            }
+
+            return implicitConnectors;
         }
 
         internal bool CheckActiveConnectorCompatibility(PortViewModel portVM)
         {
             // Check if required ports exist
-            if ( this.activeConnector == null || portVM == null )
+            if (this.activeConnector == null || portVM == null)
                 return false;
 
             PortModel srcPortM = this.activeConnector.ActiveStartPort;
@@ -495,7 +533,7 @@ namespace Dynamo.ViewModels
                         InitiateWindowSelectionSequence();
 
                     prevClick = curClick;
-                    
+
                     eventHandled = true; // Mouse event handled.
                 }
                 else if (this.currentState == State.PanMode)
@@ -515,7 +553,7 @@ namespace Dynamo.ViewModels
                 public Point Position { get; set; }
 
                 public MouseClickHistory(object sender, MouseButtonEventArgs e)
-                { 
+                {
                     this.Timestamp = e.Timestamp;
                     this.Source = e.Source;
 

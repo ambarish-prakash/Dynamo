@@ -82,6 +82,11 @@ namespace Dynamo.ViewModels
             get { return _port.MarginThickness; }
         }
 
+        public bool IsHitTestVisible
+        {
+            get { return _port.IsHitTestVisible; }
+        }
+
         public PortViewModel(PortModel port, NodeModel node)
         {
             _node = node;
@@ -134,6 +139,9 @@ namespace Dynamo.ViewModels
                     break;
                 case "MarginThickness":
                     RaisePropertyChanged("MarginThickness");
+                    break;
+                case "IsHitTestVisible":
+                    RaisePropertyChanged("IsHitTestVisible");
                     break;
             }
             
