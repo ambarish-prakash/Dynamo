@@ -180,6 +180,7 @@ namespace Dynamo.Models
             helper.SetAttribute("end", this.End.Owner.GUID);
             helper.SetAttribute("end_index", this.End.Index);
             helper.SetAttribute("portType", ((int) this.End.PortType));
+            helper.SetAttribute("implicit", this.IsImplicit);
         }
 
         protected override void DeserializeCore(XmlElement element, SaveContext context)
@@ -193,6 +194,7 @@ namespace Dynamo.Models
             Guid endNodeId = helper.ReadGuid("end");
             int endIndex = helper.ReadInteger("end_index");
             PortType portType = ((PortType)helper.ReadInteger("portType"));
+            IsImplicit = helper.ReadBoolean("implicit");
 
             // Get to the start and end nodes that this connector connects to.
             WorkspaceModel workspace = dynSettings.Controller.DynamoModel.CurrentWorkspace;
@@ -206,6 +208,9 @@ namespace Dynamo.Models
 
             pStart.Connect(this);
             this.Connect(endPort);
+
+            if (this.IsImplicit == true && endPort != null)
+                endPort.IsHitTestVisible = false;
         }
 
         #endregion

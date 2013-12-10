@@ -146,7 +146,7 @@ namespace Dynamo.Models
                 double height = owner.GetPortVerticalOffset(this);
                 if (portType == PortType.INPUT)
                 {
-                    pt = new Point(owner.X, owner.Y + _headerHeight + 5 + _portHeight/2 + height+1);
+                    pt = new Point(owner.X, owner.Y + _headerHeight + 5 + _portHeight / 2 + height + 1);
                 }
                 else if (portType == PortType.OUTPUT)
                 {
@@ -165,7 +165,7 @@ namespace Dynamo.Models
             get { return _usingDefaultValue; }
             set
             {
-                _usingDefaultValue = value; 
+                _usingDefaultValue = value;
                 RaisePropertyChanged("UsingDefaultValue");
             }
         }
@@ -253,7 +253,7 @@ namespace Dynamo.Models
         {
             if (!connectors.Contains(connector))
                 return;
-            
+
             //throw the event for a connection
             OnPortDisconnected(EventArgs.Empty);
 
@@ -261,13 +261,16 @@ namespace Dynamo.Models
             dynSettings.Controller.DynamoModel.OnConnectorDeleted(connector);
 
             connectors.Remove(connector);
-            
+
             //don't set back to white if
             //there are still connectors on this port
             if (connectors.Count == 0)
             {
                 IsConnected = false;
             }
+
+            if (connector.IsImplicit == true)
+                this.IsHitTestVisible = true;
 
             Owner.ValidateConnections();
         }
@@ -317,6 +320,7 @@ namespace Dynamo.Models
         public object DefaultValue { get; set; }
         public double VerticalMargin { get; set; }
 
+
         public PortData(string nickName, string tip)
             : this(nickName, tip, typeof(FScheme.Value.Container), null)
         { }
@@ -330,7 +334,7 @@ namespace Dynamo.Models
             VerticalMargin = 0;
         }
 
-        public bool HasDefaultValue 
+        public bool HasDefaultValue
         {
             get
             {
