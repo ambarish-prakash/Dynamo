@@ -139,6 +139,14 @@ namespace Dynamo.ViewModels
                 {
                     List<ModelBase> models = new List<ModelBase>();
                     models.Add(connector);
+                    if (connector.End.Owner is CodeBlockNodeModel)
+                    {
+                        string variableName = (connector.End.Owner as CodeBlockNodeModel).InputIdentifiers[connector.End.Index];
+                        var implicitConnections = GetImplicitConnections(connector.Start, variableName);
+                        models.AddRange(implicitConnections);
+                        foreach (var implicitConnector in implicitConnections)
+                            implicitConnector.NotifyConnectedPortsOfDeletion();
+                    }
                     _model.RecordAndDeleteModels(models);
                     connector.NotifyConnectedPortsOfDeletion();
                 }
@@ -166,6 +174,7 @@ namespace Dynamo.ViewModels
             NodeModel node = _model.GetModelInternal(nodeId) as NodeModel;
             PortModel portModel = isInPort ? node.InPorts[index] : node.OutPorts[index];
             ConnectorModel connectorToRemove = null;
+            var oldImplicitConnections = new List<ConnectorModel>();
 
             // Remove connector if one already exists
             if (portModel.Connectors.Count > 0 && portModel.PortType == PortType.INPUT)
@@ -175,6 +184,18 @@ namespace Dynamo.ViewModels
                 portModel.Disconnect(connectorToRemove);
                 var startPort = connectorToRemove.Start;
                 startPort.Disconnect(connectorToRemove);
+
+                if(portModel.Owner is CodeBlockNodeModel)
+                {
+                    string variableName = (portModel.Owner as CodeBlockNodeModel).InputIdentifiers[portModel.Index];
+                    oldImplicitConnections = GetImplicitConnections(startPort, variableName);
+                    foreach (var oldConnector in oldImplicitConnections)
+                    {
+                        oldConnector.Start.Disconnect(oldConnector);
+                        oldConnector.End.Disconnect(oldConnector);
+                        _model.Connectors.Remove(oldConnector);
+                    }
+                }
             }
 
             // Create the new connector model
@@ -200,6 +221,8 @@ namespace Dynamo.ViewModels
             var models = new Dictionary<ModelBase, UndoRedoRecorder.UserAction>();
             if (connectorToRemove != null)
                 models.Add(connectorToRemove, UndoRedoRecorder.UserAction.Deletion);
+            foreach(var oldConnector in oldImplicitConnections)
+                models.Add(oldConnector, UndoRedoRecorder.UserAction.Deletion);
             models.Add(newConnectorModel, UndoRedoRecorder.UserAction.Creation);
 
 
@@ -215,6 +238,7 @@ namespace Dynamo.ViewModels
             this.SetActiveConnector(null);
         }
 
+        #region implicit connections
         private List<ConnectorModel> MakeImplicitConnections(PortModel startPort, PortModel endPort)
         {
             List<ConnectorModel> implicitConnectors = new List<ConnectorModel>();
@@ -241,6 +265,13 @@ namespace Dynamo.ViewModels
 
             return implicitConnectors;
         }
+
+        private List<ConnectorModel> GetImplicitConnections(PortModel startPort, string variableName)
+        {
+            return _model.Connectors.Where(x => x.IsImplicit == true && x.Start == startPort && 
+                (x.End.Owner as CodeBlockNodeModel).InputIdentifiers[x.End.Index] == variableName).ToList();
+        }
+        #endregion
 
         internal bool CheckActiveConnectorCompatibility(PortViewModel portVM)
         {
