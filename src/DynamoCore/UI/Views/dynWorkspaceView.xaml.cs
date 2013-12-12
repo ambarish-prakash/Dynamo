@@ -566,7 +566,7 @@ namespace Dynamo.Views
                     DependencyObject depObject = this.hitResultsList[i];
                     PortViewModel pvm = PortFromHitTestResult(depObject);
 
-                    if (pvm == null)
+                    if (pvm == null || !pvm.IsHitTestVisible)
                         continue;
 
                     double distance = Distance(mouseCursor, pvm.Center);
