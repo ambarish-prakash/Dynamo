@@ -133,23 +133,40 @@ namespace Dynamo.ViewModels
 
                 // Disconnect the connector model from its start and end ports
                 // and remove it from the connectors collection. This will also
-                // remove the view model.
+                // remove the view model. Record its deletion in a new group as well.
+                _model.UndoRecorder.BeginActionGroup();
+
                 ConnectorModel connector = portModel.Connectors[0];
                 if (_model.Connectors.Contains(connector))
                 {
-                    List<ModelBase> models = new List<ModelBase>();
-                    models.Add(connector);
+                    _model.UndoRecorder.RecordDeletionForUndo(connector);
+                    _model.Connectors.Remove(connector);
+                    connector.NotifyConnectedPortsOfDeletion();
+                    
                     if (connector.End.Owner is CodeBlockNodeModel)
                     {
                         string variableName = (connector.End.Owner as CodeBlockNodeModel).InputIdentifiers[connector.End.Index];
-                        var implicitConnections = GetImplicitConnections(connector.Start, variableName);
-                        models.AddRange(implicitConnections);
+                        _model.UpdateDefinedVariable(variableName, connector.End.Owner.GUID, false);
+                        var implicitConnections = _model.GetImplicitConnections(connector.Start, variableName);
                         foreach (var implicitConnector in implicitConnections)
+                        {
                             implicitConnector.NotifyConnectedPortsOfDeletion();
+                            _model.UndoRecorder.RecordDeletionForUndo(implicitConnector);
+                            _model.Connectors.Remove(implicitConnector);
+                        }
+
+                        //Check if new connections should be made because this one was removed
+                        if (_model.VariableIsDefined(variableName))
+                        {
+                            var newIConnections = _model.MakeImplicitConnections(variableName);
+                            foreach (var iConnection in newIConnections)
+                                _model.UndoRecorder.RecordCreationForUndo(iConnection);
+                        }
+
                     }
-                    _model.RecordAndDeleteModels(models);
-                    connector.NotifyConnectedPortsOfDeletion();
                 }
+
+                _model.UndoRecorder.EndActionGroup();
             }
             else
             {
@@ -176,6 +193,8 @@ namespace Dynamo.ViewModels
             ConnectorModel connectorToRemove = null;
             var oldImplicitConnections = new List<ConnectorModel>();
 
+            _model.UndoRecorder.BeginActionGroup(); //Start Action Group for Undo
+
             // Remove connector if one already exists
             if (portModel.Connectors.Count > 0 && portModel.PortType == PortType.INPUT)
             {
@@ -184,16 +203,19 @@ namespace Dynamo.ViewModels
                 portModel.Disconnect(connectorToRemove);
                 var startPort = connectorToRemove.Start;
                 startPort.Disconnect(connectorToRemove);
+                _model.UndoRecorder.RecordDeletionForUndo(connectorToRemove);
 
-                if(portModel.Owner is CodeBlockNodeModel)
+                if (portModel.Owner is CodeBlockNodeModel)
                 {
                     string variableName = (portModel.Owner as CodeBlockNodeModel).InputIdentifiers[portModel.Index];
-                    oldImplicitConnections = GetImplicitConnections(startPort, variableName);
+                    _model.UpdateDefinedVariable(variableName, portModel.Owner.GUID, false);
+                    oldImplicitConnections = _model.GetImplicitConnections(startPort, variableName);
                     foreach (var oldConnector in oldImplicitConnections)
                     {
                         oldConnector.Start.Disconnect(oldConnector);
                         oldConnector.End.Disconnect(oldConnector);
                         _model.Connectors.Remove(oldConnector);
+                        _model.UndoRecorder.RecordDeletionForUndo(oldConnector);
                     }
                 }
             }
@@ -215,63 +237,25 @@ namespace Dynamo.ViewModels
                 second.Owner, firstPort.Index, second.Index, PortType.INPUT);
 
             if (newConnectorModel != null) // Add to the current workspace
+            {
                 _model.Connectors.Add(newConnectorModel);
-
-            // Record the creation of connector in the undo recorder.
-            var models = new Dictionary<ModelBase, UndoRedoRecorder.UserAction>();
-            if (connectorToRemove != null)
-                models.Add(connectorToRemove, UndoRedoRecorder.UserAction.Deletion);
-            foreach(var oldConnector in oldImplicitConnections)
-                models.Add(oldConnector, UndoRedoRecorder.UserAction.Deletion);
-            models.Add(newConnectorModel, UndoRedoRecorder.UserAction.Creation);
-
+                _model.UndoRecorder.RecordCreationForUndo(newConnectorModel);
+            }
 
             //Make the implicit connections
             if (second.Owner is CodeBlockNodeModel)
             {
-                List<ConnectorModel> implicitConnectors = MakeImplicitConnections(firstPort, second);
+                string variableName = (second.Owner as CodeBlockNodeModel).InputIdentifiers[second.Index];
+                _model.UpdateDefinedVariable(variableName, second.Owner.GUID, true);
+                var implicitConnectors = _model.MakeImplicitConnections(variableName, firstPort);
                 foreach (var implicitConnector in implicitConnectors)
-                    models.Add(implicitConnector, UndoRedoRecorder.UserAction.Creation);
+                    _model.UndoRecorder.RecordCreationForUndo(implicitConnector);
             }
 
-            _model.RecordModelsForUndo(models);
+            _model.UndoRecorder.EndActionGroup(); //End Action Group for Undo
+
             this.SetActiveConnector(null);
         }
-
-        #region implicit connections
-        private List<ConnectorModel> MakeImplicitConnections(PortModel startPort, PortModel endPort)
-        {
-            List<ConnectorModel> implicitConnectors = new List<ConnectorModel>();
-            var cbn = endPort.Owner as CodeBlockNodeModel;
-            string variableName = cbn.InputIdentifiers[endPort.Index];
-
-            var codeBlockNodes = this._model.Nodes.Where(x => (x is CodeBlockNodeModel));
-
-            foreach (var node in codeBlockNodes)
-            {
-                var codeBlockNode = node as CodeBlockNodeModel;
-                int endIndex = CodeBlockNodeModel.GetInportIndex(codeBlockNode, variableName);
-                if (endIndex == -1 || codeBlockNode == cbn)
-                    continue;
-
-                PortModel newEndPort = codeBlockNode.InPorts[endIndex];
-                var implicitConnector = ConnectorModel.Make(startPort.Owner, codeBlockNode, 
-                    startPort.Index, endIndex, PortType.INPUT);
-                implicitConnector.IsImplicit = true;
-                newEndPort.IsHitTestVisible = false;
-                this._model.Connectors.Add(implicitConnector);
-                implicitConnectors.Add(implicitConnector);
-            }
-
-            return implicitConnectors;
-        }
-
-        private List<ConnectorModel> GetImplicitConnections(PortModel startPort, string variableName)
-        {
-            return _model.Connectors.Where(x => x.IsImplicit == true && x.Start == startPort && 
-                (x.End.Owner as CodeBlockNodeModel).InputIdentifiers[x.End.Index] == variableName).ToList();
-        }
-        #endregion
 
         internal bool CheckActiveConnectorCompatibility(PortViewModel portVM)
         {

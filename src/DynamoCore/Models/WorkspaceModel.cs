@@ -1053,14 +1053,7 @@ namespace Dynamo.Models
 
                 //Get the start and end idex for the ports for the connection
                 endIndex = connector.End.Owner.InPorts.IndexOf(connector.End);
-                int i = 0;
-                for (i = 0; i < codeBlockNode.OutPorts.Count; i++)
-                {
-                    if (codeBlockNode.GetAstIdentifierForOutputIndex(i).Value == variableName)
-                        break;
-                }
-                var portModel = codeBlockNode.OutPorts[i];
-                startIndex = codeBlockNode.OutPorts.IndexOf(portModel);
+                startIndex = CodeBlockNodeModel.GetOutportIndex(codeBlockNode,variableName);
 
                 //Make the new connection and then record and add it
                 var newConnector = ConnectorModel.Make(codeBlockNode, connector.End.Owner,
@@ -1342,6 +1335,24 @@ namespace Dynamo.Models
                 CodeBlockNodeModel.ValidateDefinedVariables(model);
         }
 
+        internal void UpdateDefinedVariable(String variableName, Guid guid, bool AddToMap)
+        {
+            UndoRecorder.RecordModificationForUndo(variableDefinitions); //Record table before updation
+            if (AddToMap)
+            {
+                if (!(variableDefinitions.Map.Keys.Contains(variableName)))
+                    variableDefinitions.Map.Add(variableName, new List<Guid>());
+                
+                variableDefinitions.Map[variableName].Insert(0,guid);
+            }
+            else
+            {
+                variableDefinitions.Map[variableName].Remove(guid);
+                if (variableDefinitions.Map[variableName].Count == 0)
+                    variableDefinitions.Map.Remove(variableName);
+            }
+        }
+
         /// <summary>
         /// Returns the GUID of the node which defines the given variable
         /// </summary>
@@ -1352,6 +1363,60 @@ namespace Dynamo.Models
             return variableDefinitions.Map[variable][0];
         }
 
+        internal bool VariableIsDefined(String variableName)
+        {
+            return variableDefinitions.Map.ContainsKey(variableName);
+        }
+        #endregion
+
+        #region implicit connections
+        public List<ConnectorModel> MakeImplicitConnections(string variableName)
+        {
+            var cbnGuid = GetDefiningNode(variableName);
+            var cbn = Nodes.Where(x => x.GUID == cbnGuid).First() as CodeBlockNodeModel;
+            if (CodeBlockNodeModel.GetInportIndex(cbn, variableName) == -1)
+            {
+                int index = CodeBlockNodeModel.GetOutportIndex(cbn, variableName);
+                return MakeImplicitConnections(variableName, cbn.OutPorts[index]);
+            }
+            else
+            {
+                int index = CodeBlockNodeModel.GetInportIndex(cbn, variableName);
+                var startPort = cbn.InPorts[index].Connectors[0].Start;
+                return MakeImplicitConnections(variableName, startPort);
+            }
+        }
+
+        public List<ConnectorModel> MakeImplicitConnections(string variableName, PortModel startPort)
+        {
+            List<ConnectorModel> implicitConnectors = new List<ConnectorModel>();
+
+            var codeBlockNodes = this.Nodes.Where(x => (x is CodeBlockNodeModel));
+
+            foreach (var node in codeBlockNodes)
+            {
+                var codeBlockNode = node as CodeBlockNodeModel;
+                int endIndex = CodeBlockNodeModel.GetInportIndex(codeBlockNode, variableName);
+                if (endIndex == -1 || codeBlockNode.InPorts[endIndex].Connectors.Count != 0)
+                    continue;
+
+                PortModel newEndPort = codeBlockNode.InPorts[endIndex];
+                var implicitConnector = ConnectorModel.Make(startPort.Owner, codeBlockNode,
+                    startPort.Index, endIndex, PortType.INPUT);
+                implicitConnector.IsImplicit = true;
+                newEndPort.IsHitTestVisible = false;
+                Connectors.Add(implicitConnector);
+                implicitConnectors.Add(implicitConnector);
+            }
+
+            return implicitConnectors;
+        }
+
+        public List<ConnectorModel> GetImplicitConnections(PortModel startPort, string variableName)
+        {
+            return Connectors.Where(x => x.IsImplicit == true && x.Start == startPort &&
+                (x.End.Owner as CodeBlockNodeModel).InputIdentifiers[x.End.Index] == variableName).ToList();
+        }
         #endregion
     }
 }

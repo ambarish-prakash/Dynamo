@@ -95,7 +95,7 @@ namespace Dynamo.Nodes
         }
 
         /// <summary>
-        /// Returns the index of the port corresponding to the variable name given
+        /// Returns the index of the input port corresponding to the variable name given
         /// </summary>
         /// <param name="variableName"> Name of the variable corresponding to an input port </param>
         /// <returns> Index of the required port in the InPorts collection </returns>
@@ -105,12 +105,36 @@ namespace Dynamo.Nodes
         }
 
         /// <summary>
+<<<<<<< HEAD
         /// Makes sure that all variables defined in the code block node passed are not
         /// redefinitions of variables defined in other nodes
         /// If there is a redefinition, it then sets to node to an Error state
         /// </summary>
         /// <param name="cbn"> The code block node whose variables need to be validated </param>
         public static void ValidateDefinedVariables(CodeBlockNodeModel cbn)
+=======
+        /// Returns the index of the output port corresponding to the variable name given
+        /// </summary>
+        /// <param name="variableName"> Name of the variable corresponding to an output port </param>
+        /// <returns> Index of the required port in the OutPorts collection </returns>
+        public static int GetOutportIndex(CodeBlockNodeModel cbn, string variableName)
+        {
+            int i=0;
+            for (i = 0; i < cbn.codeStatements.Count; i++)
+            {
+                if (!(cbn.RequiresOutPort(cbn.codeStatements[i],i)))
+                    continue;
+
+                var currentVariableName = ((cbn.codeStatements[i].AstNode as BinaryExpressionNode).LeftNode as IdentifierNode).Value;
+
+                if (currentVariableName.Equals(variableName))
+                    break;
+            }
+            return i == cbn.codeStatements.Count ? -1 : i;
+        }
+
+        public static void ReValidate(CodeBlockNodeModel cbn)
+>>>>>>> refactor
         {
             //Make sure that the node did not have any parse error
             if (cbn.GetDefinedVariableNames().Count == 0 && cbn.State == ElementState.Error)
