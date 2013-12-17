@@ -105,36 +105,12 @@ namespace Dynamo.Nodes
         }
 
         /// <summary>
-<<<<<<< HEAD
         /// Makes sure that all variables defined in the code block node passed are not
         /// redefinitions of variables defined in other nodes
         /// If there is a redefinition, it then sets to node to an Error state
         /// </summary>
         /// <param name="cbn"> The code block node whose variables need to be validated </param>
         public static void ValidateDefinedVariables(CodeBlockNodeModel cbn)
-=======
-        /// Returns the index of the output port corresponding to the variable name given
-        /// </summary>
-        /// <param name="variableName"> Name of the variable corresponding to an output port </param>
-        /// <returns> Index of the required port in the OutPorts collection </returns>
-        public static int GetOutportIndex(CodeBlockNodeModel cbn, string variableName)
-        {
-            int i=0;
-            for (i = 0; i < cbn.codeStatements.Count; i++)
-            {
-                if (!(cbn.RequiresOutPort(cbn.codeStatements[i],i)))
-                    continue;
-
-                var currentVariableName = ((cbn.codeStatements[i].AstNode as BinaryExpressionNode).LeftNode as IdentifierNode).Value;
-
-                if (currentVariableName.Equals(variableName))
-                    break;
-            }
-            return i == cbn.codeStatements.Count ? -1 : i;
-        }
-
-        public static void ReValidate(CodeBlockNodeModel cbn)
->>>>>>> refactor
         {
             //Make sure that the node did not have any parse error
             if (cbn.GetDefinedVariableNames().Count == 0 && cbn.State == ElementState.Error)
@@ -202,7 +178,7 @@ namespace Dynamo.Nodes
                             //Recreate connectors that can be reused
                             LoadAndCreateConnectors(inportConnections, outportConnections);
 
-                            this.WorkSpace.UpdateDefinedVariables(this);
+                            this.WorkSpace.UpdateWorkspace(new List<object> { this });
 
                             WorkSpace.UndoRecorder.EndActionGroup();
                         }
@@ -281,6 +257,7 @@ namespace Dynamo.Nodes
             //After using the CodeToParse to process the node, change the code back to the user text
             code = helper.ReadString("CodeText"); 
             shouldFocus = helper.ReadBoolean("ShouldFocus");
+            RaisePropertyChanged("Code");
         }
 
         protected override bool UpdateValueCore(string name, string value)
@@ -323,7 +300,8 @@ namespace Dynamo.Nodes
         {
             base.Destroy();
             this.codeStatements.Clear();
-            this.WorkSpace.UpdateDefinedVariables(this);
+            this.inputIdentifiers.Clear();
+            this.WorkSpace.UpdateWorkspace(new List<object> {this});
         }
 
         protected override void SerializeCore(XmlElement element, SaveContext context)
@@ -353,6 +331,7 @@ namespace Dynamo.Nodes
                 ProcessCodeDirect();
                 //After using the parsed code for processing, change it back to the user typed code
                 code = helper.ReadString("CodeText");
+                RaisePropertyChanged("Code");
             }
         }
 
@@ -698,13 +677,14 @@ namespace Dynamo.Nodes
             for (int i = 0; i < InPorts.Count; i++)
             {
                 PortModel portModel = InPorts[i];
-                string portName = portModel.ToolTipContent;
+                string portName = inputIdentifiers[i];
                 if (portModel.Connectors.Count != 0)
                 {
                     inportConnections.Add(portName, new List<PortModel>());
                     foreach (ConnectorModel connector in portModel.Connectors)
                     {
-                        (inportConnections[portName] as List<PortModel>).Add(connector.Start);
+                        if (connector.IsImplicit == false)
+                            (inportConnections[portName] as List<PortModel>).Add(connector.Start);
                         WorkSpace.UndoRecorder.RecordDeletionForUndo(connector);
                     }
                 }
@@ -733,6 +713,7 @@ namespace Dynamo.Nodes
                     outportConnections.Add(portName, new List<PortModel>());
                     foreach (ConnectorModel connector in portModel.Connectors)
                     {
+                        if(connector.IsImplicit == false)
                         (outportConnections[portName] as List<PortModel>).Add(connector.End);
                         WorkSpace.UndoRecorder.RecordDeletionForUndo(connector);
                     }

@@ -142,27 +142,19 @@ namespace Dynamo.ViewModels
                     _model.UndoRecorder.RecordDeletionForUndo(connector);
                     _model.Connectors.Remove(connector);
                     connector.NotifyConnectedPortsOfDeletion();
-                    
+
                     if (connector.End.Owner is CodeBlockNodeModel)
                     {
+                        var cbn = connector.End.Owner as CodeBlockNodeModel;
                         string variableName = (connector.End.Owner as CodeBlockNodeModel).InputIdentifiers[connector.End.Index];
-                        _model.UpdateDefinedVariable(variableName, connector.End.Owner.GUID, false);
-                        var implicitConnections = _model.GetImplicitConnections(connector.Start, variableName);
-                        foreach (var implicitConnector in implicitConnections)
+                        if (!cbn.GetDefinedVariableNames().Contains(variableName))
                         {
-                            implicitConnector.NotifyConnectedPortsOfDeletion();
-                            _model.UndoRecorder.RecordDeletionForUndo(implicitConnector);
-                            _model.Connectors.Remove(implicitConnector);
+                            List<object> parameters = new List<object>();
+                            parameters.Add(variableName);
+                            parameters.Add(connector.End.Owner.GUID);
+                            parameters.Add(false);
+                            _model.UpdateWorkspace(parameters);
                         }
-
-                        //Check if new connections should be made because this one was removed
-                        if (_model.VariableIsDefined(variableName))
-                        {
-                            var newIConnections = _model.MakeImplicitConnections(variableName);
-                            foreach (var iConnection in newIConnections)
-                                _model.UndoRecorder.RecordCreationForUndo(iConnection);
-                        }
-
                     }
                 }
 
@@ -207,16 +199,10 @@ namespace Dynamo.ViewModels
 
                 if (portModel.Owner is CodeBlockNodeModel)
                 {
-                    string variableName = (portModel.Owner as CodeBlockNodeModel).InputIdentifiers[portModel.Index];
-                    _model.UpdateDefinedVariable(variableName, portModel.Owner.GUID, false);
-                    oldImplicitConnections = _model.GetImplicitConnections(startPort, variableName);
-                    foreach (var oldConnector in oldImplicitConnections)
-                    {
-                        oldConnector.Start.Disconnect(oldConnector);
-                        oldConnector.End.Disconnect(oldConnector);
-                        _model.Connectors.Remove(oldConnector);
-                        _model.UndoRecorder.RecordDeletionForUndo(oldConnector);
-                    }
+                    var cbn = portModel.Owner as CodeBlockNodeModel;
+                    string variableName = cbn.InputIdentifiers[portModel.Index];
+                    if (!cbn.GetDefinedVariableNames().Contains(variableName))
+                        _model.UpdateDefinedVariable(variableName, portModel.Owner.GUID, false);
                 }
             }
 
@@ -245,11 +231,16 @@ namespace Dynamo.ViewModels
             //Make the implicit connections
             if (second.Owner is CodeBlockNodeModel)
             {
-                string variableName = (second.Owner as CodeBlockNodeModel).InputIdentifiers[second.Index];
-                _model.UpdateDefinedVariable(variableName, second.Owner.GUID, true);
-                var implicitConnectors = _model.MakeImplicitConnections(variableName, firstPort);
-                foreach (var implicitConnector in implicitConnectors)
-                    _model.UndoRecorder.RecordCreationForUndo(implicitConnector);
+                var cbn = second.Owner as CodeBlockNodeModel;
+                string variableName = cbn.InputIdentifiers[second.Index];
+                if (!cbn.GetDefinedVariableNames().Contains(variableName))
+                {
+                    List<object> parameters = new List<object>();
+                    parameters.Add(variableName);
+                    parameters.Add(second.Owner.GUID);
+                    parameters.Add(true);
+                    _model.UpdateWorkspace(parameters);
+                }
             }
 
             _model.UndoRecorder.EndActionGroup(); //End Action Group for Undo

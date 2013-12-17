@@ -560,6 +560,25 @@ namespace Dynamo.Models
                     var node = model as NodeModel;
                     Debug.Assert(this == node.WorkSpace);
 
+                    //If the node helpes define a variable in a CodeBlockNode, then
+                    //that variable definition should be removed from the definition table
+                    foreach (var outPort in node.OutPorts)
+                    {
+                        foreach (var conn in outPort.Connectors)
+                        {
+                            if (conn.End.Owner is CodeBlockNodeModel && conn.IsImplicit == false && !models.Contains(conn.End.Owner))
+                            {
+                                var cbn = conn.End.Owner as CodeBlockNodeModel;
+                                var variableName = cbn.InputIdentifiers[conn.End.Index];
+                                List<object> parameters = new List<object>();
+                                parameters.Add(variableName);
+                                parameters.Add(cbn.GUID);
+                                parameters.Add(false);
+                                this.UpdateWorkspace(parameters);
+                            }
+                        }
+                    }
+
                     // Note that AllConnectors is duplicated as a separate list 
                     // by calling its "ToList" method. This is the because the 
                     // "Connectors.Remove" will modify "AllConnectors", causing 
@@ -1270,19 +1289,49 @@ namespace Dynamo.Models
 
         private VariableDefinitions variableDefinitions;
 
+        internal void UpdateWorkspace(List<object> parameters)
+        {
+            List<string> updatedVariables = new List<String>();
+            if (parameters[0] is CodeBlockNodeModel)
+                updatedVariables.AddRange(UpdateDefinedVariables(parameters[0] as CodeBlockNodeModel));
+            else
+            {
+                string variableName = parameters[0] as string;
+                Guid guid = (Guid)parameters[1];
+                bool addToMap = (bool)parameters[2];
+                UpdateDefinedVariable(variableName, guid, addToMap);
+                updatedVariables.Add(variableName);
+            }
+
+            UpdateImplicitConnections(updatedVariables);
+        }
+
         /// <summary>
         /// Method to update the variable map with the new variable definitions present in the code
         /// block node. Is called when the code block node data is changed.
         /// Also revalidates any code block nodes whose state may be affected by the update of the table.
         /// </summary>
         /// <param name="cbn"> The code block node whose variables need to be updated in the map </param>
-        internal void UpdateDefinedVariables(CodeBlockNodeModel cbn)
+        internal List<string> UpdateDefinedVariables(CodeBlockNodeModel cbn)
         {
             this.undoRecorder.RecordModificationForUndo(variableDefinitions);
-
             var definedVariableMap = variableDefinitions.Map;
 
-            List<string> currentDefinedVars = cbn.GetDefinedVariableNames();
+            HashSet<string> currentDefinedVars = new HashSet<string>();
+            HashSet<string> definedAndReferencedVars = new HashSet<String>();
+
+            foreach(var definedVar in cbn.GetDefinedVariableNames())
+            {
+                currentDefinedVars.Add(definedVar);
+                definedAndReferencedVars.Add(definedVar);
+            }
+            for (int i = 0; i < cbn.InputIdentifiers.Count; i++)
+            {
+                definedAndReferencedVars.Add(cbn.InputIdentifiers[i]);
+                if (cbn.InPorts[i].Connectors.Count == 1 && cbn.InPorts[i].Connectors[0].IsImplicit == false)
+                    currentDefinedVars.Add(cbn.InputIdentifiers[i]);
+            }
+
             var modelsToReValidate = new HashSet<CodeBlockNodeModel>();
             if (currentDefinedVars.Count != 0)
                 modelsToReValidate.Add(cbn);
@@ -1310,6 +1359,7 @@ namespace Dynamo.Models
                         var node = Nodes.Where(x => x.GUID == nodeId).First() as CodeBlockNodeModel;
                         modelsToReValidate.Add(node);
                     }
+                    definedAndReferencedVars.Add(variable);
                 }
             }
 
@@ -1333,6 +1383,8 @@ namespace Dynamo.Models
             //Reprocess those models
             foreach (var model in modelsToReValidate)
                 CodeBlockNodeModel.ValidateDefinedVariables(model);
+
+            return definedAndReferencedVars.ToList();
         }
 
         internal void UpdateDefinedVariable(String variableName, Guid guid, bool AddToMap)
@@ -1370,31 +1422,52 @@ namespace Dynamo.Models
         #endregion
 
         #region implicit connections
-        public List<ConnectorModel> MakeImplicitConnections(string variableName)
+        private void UpdateImplicitConnections(List<String> updatedVariables)
         {
-            var cbnGuid = GetDefiningNode(variableName);
-            var cbn = Nodes.Where(x => x.GUID == cbnGuid).First() as CodeBlockNodeModel;
-            if (CodeBlockNodeModel.GetInportIndex(cbn, variableName) == -1)
+            foreach (string variable in updatedVariables)
             {
-                int index = CodeBlockNodeModel.GetOutportIndex(cbn, variableName);
-                return MakeImplicitConnections(variableName, cbn.OutPorts[index]);
-            }
-            else
-            {
-                int index = CodeBlockNodeModel.GetInportIndex(cbn, variableName);
-                var startPort = cbn.InPorts[index].Connectors[0].Start;
-                return MakeImplicitConnections(variableName, startPort);
+                RemoveImplicitConnections(variable);
+                if (variableDefinitions.Map.ContainsKey(variable))
+                    MakeImplicitConnections(variable);
             }
         }
 
-        public List<ConnectorModel> MakeImplicitConnections(string variableName, PortModel startPort)
+        private void RemoveImplicitConnections(String variable)
         {
-            List<ConnectorModel> implicitConnectors = new List<ConnectorModel>();
+            var implicitConnections = GetImplicitConnections(variable);
+            foreach (var implicitConnector in implicitConnections)
+            {
+                implicitConnector.NotifyConnectedPortsOfDeletion();
+                UndoRecorder.RecordDeletionForUndo(implicitConnector);
+                Connectors.Remove(implicitConnector);
+            }
+        }
 
+        internal void MakeImplicitConnections(string variableName)
+        {
+            var cbnGuid = GetDefiningNode(variableName);
+            var cbn = Nodes.Where(x => x.GUID == cbnGuid).First() as CodeBlockNodeModel;
+            if (CodeBlockNodeModel.GetOutportIndex(cbn, variableName) == -1)
+            {
+                int index = CodeBlockNodeModel.GetInportIndex(cbn, variableName);
+                var startPort = cbn.InPorts[index].Connectors[0].Start;
+                MakeImplicitConnections(variableName, startPort);
+            }
+            else
+            {
+                int index = CodeBlockNodeModel.GetOutportIndex(cbn, variableName);
+                MakeImplicitConnections(variableName, cbn.OutPorts[index]);
+            }
+        }
+
+        internal void MakeImplicitConnections(string variableName, PortModel startPort)
+        {
             var codeBlockNodes = this.Nodes.Where(x => (x is CodeBlockNodeModel));
 
             foreach (var node in codeBlockNodes)
             {
+                if (node == startPort.Owner)
+                    continue;
                 var codeBlockNode = node as CodeBlockNodeModel;
                 int endIndex = CodeBlockNodeModel.GetInportIndex(codeBlockNode, variableName);
                 if (endIndex == -1 || codeBlockNode.InPorts[endIndex].Connectors.Count != 0)
@@ -1406,15 +1479,13 @@ namespace Dynamo.Models
                 implicitConnector.IsImplicit = true;
                 newEndPort.IsHitTestVisible = false;
                 Connectors.Add(implicitConnector);
-                implicitConnectors.Add(implicitConnector);
+                UndoRecorder.RecordCreationForUndo(implicitConnector);
             }
-
-            return implicitConnectors;
         }
 
-        public List<ConnectorModel> GetImplicitConnections(PortModel startPort, string variableName)
+        public List<ConnectorModel> GetImplicitConnections(string variableName)
         {
-            return Connectors.Where(x => x.IsImplicit == true && x.Start == startPort &&
+            return Connectors.Where(x => x.IsImplicit == true && 
                 (x.End.Owner as CodeBlockNodeModel).InputIdentifiers[x.End.Index] == variableName).ToList();
         }
         #endregion
