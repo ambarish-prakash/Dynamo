@@ -561,20 +561,17 @@ namespace Dynamo.Models
                     Debug.Assert(this == node.WorkSpace);
 
                     //If the node helpes define a variable in a CodeBlockNode, then
-                    //that variable definition should be removed from the definition table
+                    //those variables will be affected by thsi deletion. Hence those CBNs
+                    //require to update the table again
+                    HashSet<CodeBlockNodeModel> cbnsToUpdate = new HashSet<CodeBlockNodeModel>();
                     foreach (var outPort in node.OutPorts)
                     {
                         foreach (var conn in outPort.Connectors)
                         {
-                            if (conn.End.Owner is CodeBlockNodeModel && conn.IsImplicit == false && !models.Contains(conn.End.Owner))
+                            if (conn.End.Owner is CodeBlockNodeModel && conn.IsImplicit == false) 
                             {
                                 var cbn = conn.End.Owner as CodeBlockNodeModel;
-                                var variableName = cbn.InputIdentifiers[conn.End.Index];
-                                List<object> parameters = new List<object>();
-                                parameters.Add(variableName);
-                                parameters.Add(cbn.GUID);
-                                parameters.Add(false);
-                                this.UpdateWorkspace(parameters);
+                                cbnsToUpdate.Add(cbn);
                             }
                         }
                     }
@@ -598,6 +595,9 @@ namespace Dynamo.Models
                     node.Destroy();
                     node.Cleanup();
                     node.WorkSpace.Nodes.Remove(node);
+
+                    foreach (CodeBlockNodeModel cbn in cbnsToUpdate)
+                        this.UpdateWorkspace(new List<object>() { cbn });
                 }
                 else if (model is ConnectorModel)
                 {
