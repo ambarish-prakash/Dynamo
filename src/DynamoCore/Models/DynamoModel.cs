@@ -770,13 +770,15 @@ namespace Dynamo.Models
                     XmlAttribute intStartAttrib = connector.Attributes[1];
                     XmlAttribute guidEndAttrib = connector.Attributes[2];
                     XmlAttribute intEndAttrib = connector.Attributes[3];
-                    XmlAttribute portTypeAttrib = connector.Attributes[4];
+                    XmlAttribute implicitAttrib = connector.Attributes[4];
+                    XmlAttribute portTypeAttrib = connector.Attributes[5];
 
                     var guidStart = new Guid(guidStartAttrib.Value);
                     var guidEnd = new Guid(guidEndAttrib.Value);
                     int startIndex = Convert.ToInt16(intStartAttrib.Value);
                     int endIndex = Convert.ToInt16(intEndAttrib.Value);
                     PortType portType = ((PortType)Convert.ToInt16(portTypeAttrib.Value));
+                    bool isImplicit = Convert.ToBoolean(implicitAttrib.Value);
 
                     //find the elements to connect
                     NodeModel start = null;
@@ -805,7 +807,10 @@ namespace Dynamo.Models
                         startIndex, endIndex, portType);
 
                     if (newConnector != null)
+                    {
                         CurrentWorkspace.Connectors.Add(newConnector);
+                        newConnector.IsImplicit = isImplicit;
+                    }
 
                     OnConnectorAdded(newConnector);
                 }

@@ -850,6 +850,7 @@ namespace Dynamo.Models
                             connector.SetAttribute("start_index", c.Start.Index.ToString());
                             connector.SetAttribute("end", c.End.Owner.GUID.ToString());
                             connector.SetAttribute("end_index", c.End.Index.ToString());
+                            connector.SetAttribute("is_implicit", c.IsImplicit.ToString());
 
                             if (c.End.PortType == PortType.INPUT)
                                 connector.SetAttribute("portType", "0");

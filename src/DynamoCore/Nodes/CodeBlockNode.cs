@@ -756,7 +756,7 @@ namespace Dynamo.Nodes
                             this.WorkSpace.Connectors.Add(connector);
                             this.WorkSpace.UndoRecorder.RecordCreationForUndo(connector);
                         }
-                        outportConnections[varName] = null;
+                        inportConnections[varName] = null;
                     }
                 }
             }
@@ -824,7 +824,7 @@ namespace Dynamo.Nodes
             }
 
             /*
-             *Step 2:
+             *Step 3:
              *   The final step. Now that the priorties are finished, the 
              *   function tries to reuse any existing connections by attaching 
              *   them to any ports that have not already been given connections
@@ -853,6 +853,18 @@ namespace Dynamo.Nodes
                 }
                 undefinedIndices.RemoveAt(0);
                 unusedConnections.RemoveAt(0);
+            }
+
+
+            //Finally any delted connections could affect the variable definitions
+            //Hence update the table based on the last set of connections that are removed
+            for (int i = 0; i < unusedConnections.Count; i++)
+            {
+                foreach (PortModel endPortModel in unusedConnections[i])
+                {
+                    if (endPortModel.Owner is CodeBlockNodeModel)
+                        this.WorkSpace.UpdateWorkspace(new List<object> { endPortModel.Owner as CodeBlockNodeModel });
+                }
             }
         }
 
