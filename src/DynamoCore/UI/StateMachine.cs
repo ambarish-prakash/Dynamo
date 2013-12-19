@@ -145,15 +145,17 @@ namespace Dynamo.ViewModels
 
                     if (connector.End.Owner is CodeBlockNodeModel)
                     {
+                        //A variable definition might have been removed. The variable map will have to be updated.
                         var cbn = connector.End.Owner as CodeBlockNodeModel;
                         string variableName = (connector.End.Owner as CodeBlockNodeModel).InputIdentifiers[connector.End.Index];
                         if (!cbn.GetDefinedVariableNames().Contains(variableName))
                         {
+                            //If the variable hasnt been explicitly defined later in that node, then update the variable definition map
                             List<object> parameters = new List<object>();
                             parameters.Add(variableName);
                             parameters.Add(connector.End.Owner.GUID);
-                            parameters.Add(false);
-                            _model.UpdateWorkspace(parameters);
+                            parameters.Add(false); //Remove the definiton
+                            _model.UpdateVariablesAndConnections(parameters);
                         }
                     }
                 }
@@ -199,10 +201,13 @@ namespace Dynamo.ViewModels
 
                 if (portModel.Owner is CodeBlockNodeModel)
                 {
+                    // A connector is being replaced by another. We need to only remove the 
+                    // old existing definition. The connections will be remade after the new definition
+                    // has been added in.
                     var cbn = portModel.Owner as CodeBlockNodeModel;
                     string variableName = cbn.InputIdentifiers[portModel.Index];
-                    if (!cbn.GetDefinedVariableNames().Contains(variableName))
-                        _model.UpdateDefinedVariable(variableName, portModel.Owner.GUID, false);
+                    if (!cbn.GetDefinedVariableNames().Contains(variableName)) //If the variable has not been defined later on in that CBN
+                        _model.UpdateDefinedVariable(variableName, portModel.Owner.GUID, false); //Remove the definition
                 }
             }
 
@@ -231,6 +236,8 @@ namespace Dynamo.ViewModels
             //Make the implicit connections
             if (second.Owner is CodeBlockNodeModel)
             {
+                //The new connection is being made. The table should be updated (if the variable hasnt been defined later on in that CBN)
+                // and the new implicit connections should be made
                 var cbn = second.Owner as CodeBlockNodeModel;
                 string variableName = cbn.InputIdentifiers[second.Index];
                 if (!cbn.GetDefinedVariableNames().Contains(variableName))
@@ -238,8 +245,8 @@ namespace Dynamo.ViewModels
                     List<object> parameters = new List<object>();
                     parameters.Add(variableName);
                     parameters.Add(second.Owner.GUID);
-                    parameters.Add(true);
-                    _model.UpdateWorkspace(parameters);
+                    parameters.Add(true); //Defintion must be added to the table
+                    _model.UpdateVariablesAndConnections(parameters);
                 }
             }
 

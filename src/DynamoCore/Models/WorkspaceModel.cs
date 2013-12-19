@@ -597,7 +597,7 @@ namespace Dynamo.Models
                     node.WorkSpace.Nodes.Remove(node);
 
                     foreach (CodeBlockNodeModel cbn in cbnsToUpdate)
-                        this.UpdateWorkspace(new List<object>() { cbn });
+                        this.UpdateVariablesAndConnections(new List<object>() { cbn });
                 }
                 else if (model is ConnectorModel)
                 {
@@ -1290,7 +1290,17 @@ namespace Dynamo.Models
 
         private VariableDefinitions variableDefinitions;
 
-        internal void UpdateWorkspace(List<object> parameters)
+        /// <summary>
+        /// A change in variable definition usually causes a change in the implicit connections
+        /// as well. This method updates the table based on the input, and gets the variables that
+        /// were updated. It then updates the implicit connections related to these variables.
+        /// The table can be updated in two ways. One through a code block node. The other through a 
+        /// connection to a code block node.
+        /// </summary>
+        /// <param name="parameters"> List of objects. List should contain, either a CodeBlockNodeModel item, OR
+        /// a VariableName(string), guid(Guid) of the defining node and a boolean stating implying if the 
+        /// definition should be added or removed</param>
+        internal void UpdateVariablesAndConnections(List<object> parameters)
         {
             List<string> updatedVariables = new List<String>();
             if (parameters[0] is CodeBlockNodeModel)
@@ -1304,37 +1314,44 @@ namespace Dynamo.Models
                 updatedVariables.Add(variableName);
             }
 
+            //Get the variables whose implicit connections were affected and remake the connections
             UpdateImplicitConnections(updatedVariables);
         }
 
         /// <summary>
-        /// Method to update the variable map with the new variable definitions present in the code
-        /// block node. Is called when the code block node data is changed.
+        /// Method to update the variable map with the new variable definitions present in the code 
+        /// block node. Is called when the code block node data is changed. 
         /// Also revalidates any code block nodes whose state may be affected by the update of the table.
         /// </summary>
         /// <param name="cbn"> The code block node whose variables need to be updated in the map </param>
+        /// <returns> A list of strings containg the names of all the defined and reference variables in the code block node </returns>
         internal List<string> UpdateDefinedVariables(CodeBlockNodeModel cbn)
         {
             this.undoRecorder.RecordModificationForUndo(variableDefinitions);
             var definedVariableMap = variableDefinitions.Map;
 
-            HashSet<string> currentDefinedVars = new HashSet<string>();
-            HashSet<string> definedAndReferencedVars = new HashSet<String>();
+            HashSet<string> currentDefinedVars = new HashSet<string>(); //To be used to update the table. Only defined vars.
+            HashSet<string> definedAndReferencedVars = new HashSet<String>(); //To be returned. Contains defined and referenced vars.
 
-            foreach(var definedVar in cbn.GetDefinedVariableNames())
+            //Outputs
+            foreach(var definedVar in cbn.GetDefinedVariableNames()) //Get all the defined variables
             {
                 currentDefinedVars.Add(definedVar);
                 definedAndReferencedVars.Add(definedVar);
             }
+            //Inputs
             for (int i = 0; i < cbn.InputIdentifiers.Count; i++)
             {
                 definedAndReferencedVars.Add(cbn.InputIdentifiers[i]);
+                //For all the inputs, the variable may be defined if it has a non implicit connection to it.
+                //If that is the case, then add it to the list of defined variables
                 if (cbn.InPorts[i].Connectors.Count == 1 && cbn.InPorts[i].Connectors[0].IsImplicit == false)
                     currentDefinedVars.Add(cbn.InputIdentifiers[i]);
             }
 
-            var modelsToReValidate = new HashSet<CodeBlockNodeModel>();
-            if (currentDefinedVars.Count != 0)
+            var modelsToReValidate = new HashSet<CodeBlockNodeModel>(); //List of models that might get affected by the update and need to be validated again
+            
+            if (currentDefinedVars.Count != 0) //If it doesnt have any defined variables, then it probably is in error, or is being deleted.
                 modelsToReValidate.Add(cbn);
 
             //Find out the variables that were defined in that cbn previously
@@ -1388,18 +1405,28 @@ namespace Dynamo.Models
             return definedAndReferencedVars.ToList();
         }
 
+        /// <summary>
+        /// Updates one particular entry in the Map only. It is called when a connection to an input
+        /// port of a Code Block node is made. It either adds a new definition, or removes one from
+        /// the map, based on the boolean 'addToMap'
+        /// </summary>
+        /// <param name="variableName"> The variable name whose definition list in the Map must be updated </param>
+        /// <param name="guid"> The guid of the node defining that variable </param>
+        /// <param name="AddToMap"> Boolean representing wheter the definition should be added or removed </param>
         internal void UpdateDefinedVariable(String variableName, Guid guid, bool AddToMap)
         {
             UndoRecorder.RecordModificationForUndo(variableDefinitions); //Record table before updation
             if (AddToMap)
             {
                 if (!(variableDefinitions.Map.Keys.Contains(variableName)))
-                    variableDefinitions.Map.Add(variableName, new List<Guid>());
+                    variableDefinitions.Map.Add(variableName, new List<Guid>()); //Create new entry if it didnt exist
                 
+                //Add to the fron of the list cause the connection definition, if possible, is always first
                 variableDefinitions.Map[variableName].Insert(0,guid);
             }
             else
             {
+                //Remove th guid from definitions, and if needed, remove the entry
                 variableDefinitions.Map[variableName].Remove(guid);
                 if (variableDefinitions.Map[variableName].Count == 0)
                     variableDefinitions.Map.Remove(variableName);
@@ -1416,6 +1443,11 @@ namespace Dynamo.Models
             return variableDefinitions.Map[variable][0];
         }
 
+        /// <summary>
+        /// Checks wheter the variable has been defined or not
+        /// </summary>
+        /// <param name="variableName"> The name of the variable </param>
+        /// <returns> Boolean, true if variable was defined, false otherwise </returns>
         internal bool VariableIsDefined(String variableName)
         {
             return variableDefinitions.Map.ContainsKey(variableName);
@@ -1423,67 +1455,106 @@ namespace Dynamo.Models
         #endregion
 
         #region implicit connections
+        /// <summary>
+        /// For the given list of variables, it deletes and recreates the implicit 
+        /// connections related to that variable
+        /// </summary>
+        /// <param name="updatedVariables"> List of variable names </param>
         private void UpdateImplicitConnections(List<String> updatedVariables)
         {
             foreach (string variable in updatedVariables)
             {
-                RemoveImplicitConnections(variable);
+                RemoveImplicitConnections(variable); //Remove all implicit conns of that variable
                 if (variableDefinitions.Map.ContainsKey(variable))
-                    MakeImplicitConnections(variable);
+                    MakeImplicitConnections(variable); //Remake them if the variable is defined
             }
         }
 
+        /// <summary>
+        /// Gets all the implicit connections related to a particular variable and deletes them
+        /// </summary>
+        /// <param name="variable"> The name of the variable </param>
         private void RemoveImplicitConnections(String variable)
         {
             var implicitConnections = GetImplicitConnections(variable);
             foreach (var implicitConnector in implicitConnections)
             {
                 implicitConnector.NotifyConnectedPortsOfDeletion();
-                UndoRecorder.RecordDeletionForUndo(implicitConnector);
-                Connectors.Remove(implicitConnector);
+                UndoRecorder.RecordDeletionForUndo(implicitConnector); //Record
+                Connectors.Remove(implicitConnector); //Delete
             }
         }
 
+        /// <summary>
+        /// For a given variable, it finds all nodes referencing this variable and makes connections
+        /// from the defining node to the referenced nodes. 
+        /// </summary>
+        /// <param name="variableName"> The name of the variable </param>
         internal void MakeImplicitConnections(string variableName)
         {
-            var cbnGuid = GetDefiningNode(variableName);
+            var cbnGuid = GetDefiningNode(variableName); //Get the node that defines it
             var cbn = Nodes.Where(x => x.GUID == cbnGuid).First() as CodeBlockNodeModel;
+            PortModel startPort;
+
+            //The function gets the start port of the implicit connections based on wheter the node 
+            //defined the variable explicitly, or defined it due to an input connection.
+            //It the calls the other method to make the connections
             if (CodeBlockNodeModel.GetOutportIndex(cbn, variableName) == -1)
             {
+                //If the outport index of the variable is -1, then the varible was referenced, and not explicitly defined
+                //Hence use the start port of the connection connected to the input port
                 int index = CodeBlockNodeModel.GetInportIndex(cbn, variableName);
-                var startPort = cbn.InPorts[index].Connectors[0].Start;
-                MakeImplicitConnections(variableName, startPort);
+                startPort = cbn.InPorts[index].Connectors[0].Start;
             }
             else
             {
+                //The node defines the variable explicitly. Use the correct output port
                 int index = CodeBlockNodeModel.GetOutportIndex(cbn, variableName);
-                MakeImplicitConnections(variableName, cbn.OutPorts[index]);
+                startPort =  cbn.OutPorts[index];
             }
+
+            MakeImplicitConnections(variableName, startPort);
         }
 
+        /// <summary>
+        /// For a given variable, it finds all nodes referencing this variable and makes connections
+        /// from the provided startPort to the inputports of the nodes that refrence it.
+        /// </summary>
+        /// <param name="variableName"> The name of the variable </param>
+        /// <param name="startPort"> The port from which the connections should begin. Must be an output port </param>
         internal void MakeImplicitConnections(string variableName, PortModel startPort)
         {
+            Debug.Assert(startPort.PortType == PortType.OUTPUT); //Ensure that its an output port
+
             var codeBlockNodes = this.Nodes.Where(x => (x is CodeBlockNodeModel));
 
             foreach (var node in codeBlockNodes)
             {
+                //For all the CBNs other than the one with the startPort, check if their inputs contains
+                //the given variable
                 if (node == startPort.Owner)
                     continue;
                 var codeBlockNode = node as CodeBlockNodeModel;
                 int endIndex = CodeBlockNodeModel.GetInportIndex(codeBlockNode, variableName);
                 if (endIndex == -1 || codeBlockNode.InPorts[endIndex].Connectors.Count != 0)
-                    continue;
+                    continue; //If it doesnt, then skip this node
 
+                //If it does contain, the make the connection from the startPort to the respective input port
                 PortModel newEndPort = codeBlockNode.InPorts[endIndex];
                 var implicitConnector = ConnectorModel.Make(startPort.Owner, codeBlockNode,
-                    startPort.Index, endIndex, PortType.INPUT);
-                implicitConnector.IsImplicit = true;
-                newEndPort.IsHitTestVisible = false;
-                Connectors.Add(implicitConnector);
-                UndoRecorder.RecordCreationForUndo(implicitConnector);
+                    startPort.Index, endIndex, PortType.INPUT); //make the connection
+                implicitConnector.IsImplicit = true; //Set the connector as implicit
+                newEndPort.IsHitTestVisible = false; //Make the end port hit test false
+                Connectors.Add(implicitConnector); //Add the connector
+                UndoRecorder.RecordCreationForUndo(implicitConnector); //Record the connector
             }
         }
 
+        /// <summary>
+        /// Returns all the implicit connections which help reference the given variable name
+        /// </summary>
+        /// <param name="variableName"> The variable name that the connections help define </param>
+        /// <returns> List of connectors which are implicit and help define the required variable </returns>
         public List<ConnectorModel> GetImplicitConnections(string variableName)
         {
             return Connectors.Where(x => x.IsImplicit == true && 

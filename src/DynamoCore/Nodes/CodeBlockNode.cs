@@ -105,6 +105,27 @@ namespace Dynamo.Nodes
         }
 
         /// <summary>
+        /// Returns the index of the output port corresponding to the variable name given
+        /// </summary>
+        /// <param name="variableName"> Name of the variable corresponding to an output port </param>
+        /// <returns> Index of the required port in the OutPorts collection </returns>
+        public static int GetOutportIndex(CodeBlockNodeModel cbn, string variableName)
+        {
+            int i = 0;
+            for (i = 0; i < cbn.codeStatements.Count; i++)
+            {
+                if (!(cbn.RequiresOutPort(cbn.codeStatements[i], i)))
+                    continue;
+
+                var currentVariableName = ((cbn.codeStatements[i].AstNode as BinaryExpressionNode).LeftNode as IdentifierNode).Value;
+
+                if (currentVariableName.Equals(variableName))
+                    break;
+            }
+            return i == cbn.codeStatements.Count ? -1 : i;
+        }
+
+        /// <summary>
         /// Makes sure that all variables defined in the code block node passed are not
         /// redefinitions of variables defined in other nodes
         /// If there is a redefinition, it then sets to node to an Error state
@@ -178,7 +199,7 @@ namespace Dynamo.Nodes
                             //Recreate connectors that can be reused
                             LoadAndCreateConnectors(inportConnections, outportConnections);
 
-                            this.WorkSpace.UpdateWorkspace(new List<object> { this });
+                            this.WorkSpace.UpdateVariablesAndConnections(new List<object> { this });
 
                             WorkSpace.UndoRecorder.EndActionGroup();
                         }
@@ -301,7 +322,7 @@ namespace Dynamo.Nodes
             base.Destroy();
             this.codeStatements.Clear();
             this.inputIdentifiers.Clear();
-            this.WorkSpace.UpdateWorkspace(new List<object> {this});
+            this.WorkSpace.UpdateVariablesAndConnections(new List<object> {this});
         }
 
         protected override void SerializeCore(XmlElement element, SaveContext context)
@@ -510,9 +531,6 @@ namespace Dynamo.Nodes
                 var statement = parsedNodes[i] as BinaryExpressionNode;
                 if (null != statement)
                 {
-                    /*previewVariable = "temp" + Guid.NewGuid().ToString();
-                    previewVariable = previewVariable.Replace('-', '_');
-                    previewExpressionAST = new ProtoCore.AST.AssociativeAST.BinaryExpressionNode(new IdentifierNode(previewVariable), lastStatement.LeftNode, Operator.assign);*/
                     previewVariable = (statement.LeftNode as IdentifierNode).Value;
                     break;
                 }
@@ -612,7 +630,8 @@ namespace Dynamo.Nodes
                 }
 
                 // CRASH:Extract Statement from code does not work for Function calls and causes it to crash
-                //       Hence, am commenting out the formatting die to text wrapping until it gets fixed
+                //       Hence, am commenting out the formatting due to text wrapping until it gets fixed
+                //Todo : Uncomment when ExtractStatementFromCode works with functiond deifnitions as well
                 /*//Calculate extra margin required due to text wrapping
                 if (i != 0)
                 {
@@ -863,7 +882,7 @@ namespace Dynamo.Nodes
                 foreach (PortModel endPortModel in unusedConnections[i])
                 {
                     if (endPortModel.Owner is CodeBlockNodeModel)
-                        this.WorkSpace.UpdateWorkspace(new List<object> { endPortModel.Owner as CodeBlockNodeModel });
+                        this.WorkSpace.UpdateVariablesAndConnections(new List<object> { endPortModel.Owner as CodeBlockNodeModel });
                 }
             }
         }
