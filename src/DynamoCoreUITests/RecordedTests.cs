@@ -1070,6 +1070,308 @@ namespace Dynamo.Tests.UI
             Assert.AreEqual(ElementState.Active, cbn4.State);
         }
 
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_1()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "a = 2;"
+            2.Made CBN2 with code "b = a;"
+            3.Made CBN3 with code "c = b;"
+            4.Made CBN4 with code "d = c;"
+            5.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_1.xml");
+            
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(4, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+            var cbn2 = workspace.Nodes[1] as CodeBlockNodeModel;
+            Assert.AreEqual(1, cbn2.OutPorts[0].Connectors.Count);
+
+            AssertValue("a", 2);
+            AssertValue("b", 2);
+            AssertValue("c", 2);
+            AssertValue("d", 2);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_2()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "a = 2;"
+            2.Made CBN2 with code "b = a;"
+            3.Made CBN3 with code "c = b;"
+            4.Made CBN4 with code "d = c;"
+            5.Changed value of CBN4 to "d = 10 + b;"
+            6.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_2.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(4, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+            var cbn2 = workspace.Nodes[1] as CodeBlockNodeModel;
+            Assert.AreEqual(2, cbn2.OutPorts[0].Connectors.Count);
+
+            AssertValue("a", 2);
+            AssertValue("b", 2);
+            AssertValue("c", 2);
+            AssertValue("d", 12);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_3()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "a = 23;"
+            6.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_3.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+
+            AssertValue("a", 23);
+            AssertValue("b", 20);
+            AssertValue("c", 30);
+            AssertValue("d", 15);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_4()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "a = 23;"
+            5.Made CBN5 with code "a = 8;"
+            6.Deleted CBN4
+            6.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_4.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+
+            AssertValue("a", 8);
+            AssertValue("b", 5);
+            AssertValue("c", 15);
+            AssertValue("d", 0);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_5()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "a = 4;"
+            2.Made CBN2 with code "b = a + 6; \n c = a - 4;"
+            3.Changed CBN2s value to "b = a + 6; \n c = d - 4;"
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_5.xml");
+
+            Assert.AreEqual(2, workspace.Nodes.Count);
+            Assert.AreEqual(1, workspace.Connectors.Count);
+            Assert.AreEqual(true, workspace.Connectors[0].IsImplicit);
+            Assert.AreEqual(ElementState.Dead, workspace.Nodes[1].State);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_Undo()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "a = 23;"
+            6.Deleted CBN4
+            7.Undo
+            8.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_Undo.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x=>x.IsImplicit == true).Count());
+            Assert.AreEqual(4, workspace.Nodes.Where(x=>x.State==ElementState.Active).Count());
+
+
+            AssertValue("a", 23);
+            AssertValue("b", 20);
+            AssertValue("c", 30);
+            AssertValue("d", 15);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_DirectDefinition_Redo()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "a = 23;"
+            6.Deleted CBN4
+            7.Undo
+            8.Redo
+            */
+            RunCommandsFromFile("Implicit_DirectDefinition_Redo.xml");
+
+            Assert.AreEqual(3, workspace.Nodes.Count);
+            Assert.AreEqual(0, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Nodes.Where(x => x.State == ElementState.Dead).Count());
+            Assert.AreEqual(0, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_1()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            6.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_1.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(2, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(4, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+
+            AssertValue("a", 23);
+            AssertValue("b", 20);
+            AssertValue("c", 30);
+            AssertValue("d", 15);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_2()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            4.Made CBN5 with code "33;"
+            5.Connected CBN5 to input of CBN1.
+            6.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_2.xml");
+
+            Assert.AreEqual(5, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(2, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(5, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+            AssertValue("a", 33);
+            AssertValue("b", 30);
+            AssertValue("c", 40);
+            AssertValue("d", 25);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_3()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            6.Removed the connection
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_3.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(0, workspace.Connectors.Count);
+            Assert.AreEqual(0, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(1, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_4()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            6.Made CBN5 with code "a = 23";
+            7.Removed the connection
+            8.Ran the model
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_4.xml");
+         
+            Assert.AreEqual(5, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(3, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(5, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+            AssertValue("a", 23);
+            AssertValue("b", 20);
+            AssertValue("c", 30);
+            AssertValue("d", 15);
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_Undo()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            6.Undo
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_Undo.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(0, workspace.Connectors.Count);
+            Assert.AreEqual(0, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(1, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+        }
+
+        [Test, RequiresSTA]
+        public void TestImplicit_IndirectDefinition_Redo()
+        {
+            /*Following Steps were done:
+            1.Made CBN1 with code "b = a-3;"
+            2.Made CBN2 with code "c = a+7;"
+            3.Made CBN3 with code "d = a-8;"
+            4.Made CBN4 with code "23;"
+            5.Connected CBN4 to input of CBN1.
+            6.Undo
+            7.Redo
+            8.Ran Dynamo
+            */
+            RunCommandsFromFile("Implicit_IndirectDefinition_Redo.xml");
+
+            Assert.AreEqual(4, workspace.Nodes.Count);
+            Assert.AreEqual(3, workspace.Connectors.Count);
+            Assert.AreEqual(2, workspace.Connectors.Where(x => x.IsImplicit == true).Count());
+            Assert.AreEqual(4, workspace.Nodes.Where(x => x.State == ElementState.Active).Count());
+
+
+            AssertValue("a", 23);
+            AssertValue("b", 20);
+            AssertValue("c", 30);
+            AssertValue("d", 15);
+        }
+
         #endregion
 
         #region Defect Verifications Test Cases

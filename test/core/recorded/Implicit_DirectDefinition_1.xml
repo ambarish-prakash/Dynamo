@@ -1,0 +1,20 @@
+<Commands ExitAfterPlayback="true" PauseAfterPlaybackInMs="10" CommandIntervalInMs="20">
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="41cb9ce8-849b-49f1-b6fe-4dbfbd309ce0" NodeName="Code Block" X="398" Y="211" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="41cb9ce8-849b-49f1-b6fe-4dbfbd309ce0" Name="Code" Value="a = 2;" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="0168ec9d-baf8-485d-aaea-f66f7d8f27ca" NodeName="Code Block" X="501" Y="372" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="0168ec9d-baf8-485d-aaea-f66f7d8f27ca" Name="Code" Value="b = a" />
+  <SelectInRegionCommand X="625" Y="465" Width="0" Height="1" IsCrossSelection="false" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="a431bf76-4f27-4e13-8d41-9961bea3dc78" NodeName="Code Block" X="646" Y="522" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="a431bf76-4f27-4e13-8d41-9961bea3dc78" Name="Code" Value="c = b" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="773dc458-7d2e-4c9f-8233-22efa8b676a8" NodeName="Code Block" X="790" Y="681" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="773dc458-7d2e-4c9f-8233-22efa8b676a8" Name="Code" Value="d = c" />
+  <RunCancelCommand ShowErrors="false" CancelRun="false" />
+</Commands>

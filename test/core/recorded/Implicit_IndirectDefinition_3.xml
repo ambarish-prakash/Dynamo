@@ -1,0 +1,22 @@
+<Commands ExitAfterPlayback="true" PauseAfterPlaybackInMs="10" CommandIntervalInMs="20">
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="e5197f87-2a8e-48aa-8a6d-1a586dbc9556" NodeName="Code Block" X="364" Y="497" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="e5197f87-2a8e-48aa-8a6d-1a586dbc9556" Name="Code" Value="33" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="1138ad62-504c-4d06-b737-a56460ce376c" NodeName="Code Block" X="724" Y="353" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="1138ad62-504c-4d06-b737-a56460ce376c" Name="Code" Value="b = a - 3" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="3b6c982e-8f11-48ec-9d8b-037aa42b503c" NodeName="Code Block" X="668" Y="477" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="3b6c982e-8f11-48ec-9d8b-037aa42b503c" Name="Code" Value="c = a + 7" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <CreateNodeCommand NodeId="c3f85f7f-2663-4fb2-a532-204c3a5f5799" NodeName="Code Block" X="703" Y="597" DefaultPosition="false" TransformCoordinates="true" />
+  <SelectModelCommand ModelGuid="00000000-0000-0000-0000-000000000000" Modifiers="0" />
+  <UpdateModelValueCommand ModelGuid="c3f85f7f-2663-4fb2-a532-204c3a5f5799" Name="Code" Value="d = a - 8" />
+  <MakeConnectionCommand NodeId="e5197f87-2a8e-48aa-8a6d-1a586dbc9556" PortIndex="0" Type="1" ConnectionMode="0" />
+  <MakeConnectionCommand NodeId="1138ad62-504c-4d06-b737-a56460ce376c" PortIndex="0" Type="0" ConnectionMode="1" />
+  <MakeConnectionCommand NodeId="1138ad62-504c-4d06-b737-a56460ce376c" PortIndex="0" Type="0" ConnectionMode="0" />
+  <MakeConnectionCommand NodeId="00000000-0000-0000-0000-000000000000" PortIndex="-1" Type="0" ConnectionMode="2" />
+</Commands>
